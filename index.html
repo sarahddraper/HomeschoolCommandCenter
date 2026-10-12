@@ -845,6 +845,7 @@ body[data-look="grid"] .void-row b { font-family: var(--display); }
 @keyframes vglitch2 { 0%, 94%, 100% { transform: translateX(.04em); } 94.5% { transform: translateX(-.25em); } 95.5% { transform: translateX(.18em); } 96.5% { transform: translateX(-.1em); opacity: .7; } 97.5% { transform: translateX(.04em); } }
 @keyframes vglitch0 { 0%, 94%, 98%, 100% { transform: none; filter: none; } 94.5% { transform: skewX(-12deg) translateX(-4px); filter: hue-rotate(-60deg) brightness(1.4); } 95.5% { transform: skewX(10deg) translateX(5px); } 96.5% { transform: translateY(-3px); filter: brightness(1.8); } 97.5% { transform: none; filter: hue-rotate(40deg); } }
 @media (prefers-reduced-motion: reduce) { .glitchy .f1, .glitchy .f2, .glitchy .frac, .frac i { animation: none !important; } }
+.confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 60; pointer-events: none; }
 </style>
 </head>
 <body data-look="default">
@@ -1280,33 +1281,64 @@ window.HUB = {
     document.body.appendChild(el);
     setTimeout(function () { el.remove(); }, 3200);
   }
+  // Roman at 100%: a trumpet fanfare and confetti bursting across the whole screen
   function playPowned() {
-    pwnedBubble();
+    confettiBurst();
     try {
       var AC = window.AudioContext || window.webkitAudioContext;
-      if (AC) {
-        audioCtx = audioCtx || new AC();
-        var t0 = audioCtx.currentTime, o = audioCtx.createOscillator(), g = audioCtx.createGain();
-        o.type = "sawtooth"; o.frequency.setValueAtTime(180, t0); o.frequency.exponentialRampToValueAtTime(1400, t0 + 0.35);
-        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.25, t0 + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.45);
-        o.connect(g); g.connect(audioCtx.destination); o.start(t0); o.stop(t0 + 0.5);
-        var b = audioCtx.createOscillator(), bg = audioCtx.createGain();
-        b.type = "square"; b.frequency.setValueAtTime(90, t0 + 0.4); b.frequency.exponentialRampToValueAtTime(40, t0 + 0.9);
-        bg.gain.setValueAtTime(0.0001, t0 + 0.4); bg.gain.exponentialRampToValueAtTime(0.3, t0 + 0.42); bg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.95);
-        b.connect(bg); bg.connect(audioCtx.destination); b.start(t0 + 0.4); b.stop(t0 + 1);
-      }
+      if (!AC) return;
+      audioCtx = audioCtx || new AC();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      var t = audioCtx.currentTime + 0.05;
+      // "ta-ta-ta-TAAA, ta-TAAAA" (seconds: note, length)
+      [[392, 0.13], [523.25, 0.13], [659.25, 0.13], [783.99, 0.38], [659.25, 0.15], [783.99, 0.9]].forEach(function (n) {
+        trumpet(n[0], t, n[1]); t += n[1] + 0.03;
+      });
     } catch (e) {}
-    try {
-      if (window.speechSynthesis) {
-        // Spelled so the voice says "owned" with a P (rhymes with "owned", not "pound")
-        var u = new SpeechSynthesisUtterance("Pohned!");
-        var v = speechSynthesis.getVoices().filter(function (x) { return /^en/i.test(x.lang); });
-        if (v.length) u.voice = v.filter(function (x) { return /male|david|daniel|alex|fred/i.test(x.name); })[0] || v[0];
-        u.pitch = 0.5; u.rate = 0.5; u.volume = 1;
-        speechSynthesis.cancel();
-        setTimeout(function () { speechSynthesis.speak(u); }, 450);
+  }
+  function trumpet(freq, t0, dur) {
+    var out = audioCtx.createGain(), lp = audioCtx.createBiquadFilter();
+    lp.type = "lowpass"; lp.Q.value = 3;
+    lp.frequency.setValueAtTime(600, t0); lp.frequency.exponentialRampToValueAtTime(3200, t0 + 0.06); lp.frequency.exponentialRampToValueAtTime(1800, t0 + dur);
+    out.gain.setValueAtTime(0.0001, t0); out.gain.exponentialRampToValueAtTime(0.22, t0 + 0.035);
+    out.gain.setValueAtTime(0.18, t0 + dur * 0.8); out.gain.exponentialRampToValueAtTime(0.0001, t0 + dur + 0.08);
+    lp.connect(out); out.connect(audioCtx.destination);
+    var vib = audioCtx.createOscillator(), vg = audioCtx.createGain();
+    vib.frequency.value = 5.5; vg.gain.value = dur > 0.3 ? freq * 0.008 : 0; vib.connect(vg);
+    [-4, 4].forEach(function (cents) {
+      var o = audioCtx.createOscillator(); o.type = "sawtooth"; o.frequency.value = freq; o.detune.value = cents;
+      vg.connect(o.frequency); o.connect(lp); o.start(t0); o.stop(t0 + dur + 0.1);
+    });
+    vib.start(t0); vib.stop(t0 + dur + 0.1);
+  }
+  function confettiBurst() {
+    var old = document.querySelector(".confetti"); if (old) old.remove();
+    var cv = document.createElement("canvas"); cv.className = "confetti"; cv.setAttribute("aria-hidden", "true");
+    document.body.appendChild(cv);
+    var W = cv.width = window.innerWidth, H = cv.height = window.innerHeight, c = cv.getContext("2d");
+    var colors = ["#00E5FF", "#FF2E88", "#FFE14D", "#7CFF4F", "#FF8A00", "#B26BFF", "#FFFFFF"], bits = [];
+    function shoot(x, y, ang, spread, speed, n) {
+      for (var i = 0; i < n; i++) {
+        var a = ang + (Math.random() - 0.5) * spread, v = speed * (0.55 + Math.random() * 0.6);
+        bits.push({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, w: 6 + Math.random() * 7, h: 9 + Math.random() * 9,
+          r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.4, col: colors[i % colors.length], flip: Math.random() * 6 });
       }
-    } catch (e) {}
+    }
+    var many = still ? 0.35 : 1, sp = Math.max(W, H) / 55;
+    shoot(0, H, -Math.PI / 3.2, 0.7, sp * 1.15, 110 * many);          // bottom-left cannon
+    shoot(W, H, -Math.PI + Math.PI / 3.2, 0.7, sp * 1.15, 110 * many); // bottom-right cannon
+    shoot(W / 2, H * 0.4, 0, Math.PI * 2, sp * 0.8, 140 * many);      // big pop in the middle
+    var start = performance.now();
+    (function frame(now) {
+      var age = now - start; c.clearRect(0, 0, W, H);
+      bits.forEach(function (b) {
+        b.vy += 0.32; b.vx *= 0.99; b.vy *= 0.99; b.x += b.vx; b.y += b.vy; b.r += b.vr; b.flip += 0.15;
+        c.save(); c.translate(b.x, b.y); c.rotate(b.r); c.scale(1, Math.cos(b.flip));
+        c.globalAlpha = age > 3500 ? Math.max(0, 1 - (age - 3500) / 1000) : 1;
+        c.fillStyle = b.col; c.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); c.restore();
+      });
+      if (age < 4500) requestAnimationFrame(frame); else cv.remove();
+    })(start);
   }
 
   // ---------- Aurora: war horn + "Kill that boss!" at 100%, sword clang on the hit ----------
