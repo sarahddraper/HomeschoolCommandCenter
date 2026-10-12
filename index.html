@@ -1018,8 +1018,8 @@ window.HUB = {
 
   // Assignments that repeat every week. "day" is the day it's due.
   weekly: [
-    { subject: "spelling", title: "Mid Week Spelling Practice", day: "Wed", notes: "Printed sheet" },
-    { subject: "spelling", title: "Spelling Test Practice Sheet", day: "Fri", notes: "Printed sheet" }
+    { subject: "spelling", title: "Mid Week Spelling Practice", oldTitle: "Spelling Practice Sheet #1", day: "Wed", notes: "Printed sheet" },
+    { subject: "spelling", title: "Spelling Test Practice Sheet", oldTitle: "Spelling Practice Sheet #2", day: "Fri", notes: "Printed sheet" }
   ],
 
   // One-time assignments with due dates. These show in "Due this week".
@@ -1131,7 +1131,13 @@ window.HUB = {
     if (idx < 0) return;
     for (var wk = 0; wk <= 1; wk++) {
       var due = ymd(addDays(monday(today), 7 * wk + (idx + 6) % 7));
-      assignments.push(Object.assign({}, w, { due: due, id: w.subject + "|" + w.title + "|" + due }));
+      var id = w.subject + "|" + w.title + "|" + due;
+      // Keep check marks made before a homework was renamed (data.js "oldTitle")
+      if (w.oldTitle) Object.keys(store.done).forEach(function (kidId) {
+        var was = store.done[kidId]["a|" + w.subject + "|" + w.oldTitle + "|" + due];
+        if (was && !store.done[kidId]["a|" + id]) { store.done[kidId]["a|" + id] = was; save(); }
+      });
+      assignments.push(Object.assign({}, w, { due: due, id: id }));
     }
   });
   var state = {
@@ -1432,7 +1438,8 @@ window.HUB = {
       '';
 
     if (state.showDays) {
-      var wk = monday(today);
+      // On Saturday and Sunday the day picker shows the coming week, so Monday means tomorrow
+      var wk = today.getDay() === 0 || today.getDay() === 6 ? addDays(monday(today), 7) : monday(today);
       html += '<div class="days">';
       for (var i = 0; i < 7; i++) {
         var day = addDays(wk, i);
