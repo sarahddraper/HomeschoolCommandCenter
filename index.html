@@ -931,6 +931,17 @@ window.HUB = {
       todo: [
         { text: "Synthesis Tutor for 20 minutes", link: "https://tutor.synthesis.com/login" }
       ],
+      // One child's version of this subject, from a date onward (add until: "YYYY-MM-DD" to stop it)
+      forKid: {
+        kid1: {
+          from: "2026-10-12",
+          instructions: "Set the timer for 10 minutes for CUE CARDS. Set the timer for 10 minutes for SYNTHESIS.",
+          todo: [
+            { text: "Cue cards for 10 minutes" },
+            { text: "Synthesis Tutor for 10 minutes", link: "https://tutor.synthesis.com/login" }
+          ]
+        }
+      },
       links: [
         { label: "Synthesis Tutor", url: "https://tutor.synthesis.com/login" }
       ]
@@ -1150,6 +1161,11 @@ window.HUB = {
     var list = (state.kid && day[state.kid.id]) || day.all;
     return Array.isArray(list) ? list : null;
   }
+  // A child's own version of a subject (subject.forKid[kidId]), active from its "from" date until its "until" date
+  function kidVersion(s, d) {
+    var fk = s.forKid && state.kid && s.forKid[state.kid.id], day = ymd(d || today);
+    return fk && (!fk.from || day >= fk.from) && (!fk.until || day <= fk.until) ? fk : null;
+  }
   function specialEntry(s, d) {
     var sp = special(d);
     return sp ? sp.filter(function (e) { return e.subject === s.id; })[0] || null : null;
@@ -1167,7 +1183,7 @@ window.HUB = {
       var pr = s.prompts[ymd(d)];
       return [pr ? { text: "Prompt: " + pr, write: true, prompt: pr } : { text: s.noPrompt || "No prompt yet. Write about anything you like!", write: true, prompt: "" }];
     }
-    var t = s.todo;
+    var kv = kidVersion(s, d), t = kv && kv.todo ? kv.todo : s.todo;
     if (Array.isArray(t)) return t;
     if (t && typeof t === "object") return t[DAY_KEYS[d.getDay()]] || t["default"] || [];
     return [];
@@ -1233,7 +1249,8 @@ window.HUB = {
   }
   function howTo(s, d) {
     var se = specialEntry(s, d || today);
-    var ins = se && se.instructions ? se.instructions : s.instructions;
+    var kv = kidVersion(s, d);
+    var ins = se && se.instructions ? se.instructions : kv && kv.instructions ? kv.instructions : s.instructions;
     if (ins && typeof ins === "object") ins = ins[DAY_KEYS[(d || today).getDay()]] || ins["default"] || "";
     return ins ? '<p class="how"><b>How to do it:</b> ' + esc(ins) + "</p>" : "";
   }
