@@ -952,10 +952,12 @@ window.HUB = {
       days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
       // Instructions and tasks can change by day. "default" covers every other day.
       instructions: {
+        Thu: "Practice day! Work on your Spelling Test Practice Sheet. It's due tomorrow.",
         Fri: "Test day!",
         default: "Open the spelling app and practice this week's words."
       },
       todo: {
+        Thu: [{ text: "Spelling Test Practice Sheet (due Friday)" }],
         Fri: [{ text: "Spelling test", link: "https://script.google.com/macros/s/AKfycbzgclfhdw6hOhQfdeh4fvqGVN4TGx_l29eu1S9d9XBHI03ef_jQ5_iIEQMpmsftzoaX/exec" }],
         default: [{ text: "Spelling practice", link: "https://script.google.com/macros/s/AKfycbzgclfhdw6hOhQfdeh4fvqGVN4TGx_l29eu1S9d9XBHI03ef_jQ5_iIEQMpmsftzoaX/exec" }]
       },
@@ -1019,7 +1021,6 @@ window.HUB = {
 
   // Assignments that repeat every week. "day" is the day it's due.
   weekly: [
-    { subject: "spelling", title: "Mid Week Spelling Practice", oldTitle: "Spelling Practice Sheet #1", day: "Wed", notes: "Printed sheet" },
     { subject: "spelling", title: "Spelling Test Practice Sheet", oldTitle: "Spelling Practice Sheet #2", day: "Fri", notes: "Printed sheet" }
   ],
 
