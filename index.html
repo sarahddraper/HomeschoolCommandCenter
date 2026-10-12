@@ -1018,8 +1018,8 @@ window.HUB = {
 
   // Assignments that repeat every week. "day" is the day it's due.
   weekly: [
-    { subject: "spelling", title: "Spelling Practice Sheet #1", day: "Wed", notes: "Printed sheet" },
-    { subject: "spelling", title: "Spelling Practice Sheet #2", day: "Fri", notes: "Printed sheet" }
+    { subject: "spelling", title: "Mid Week Spelling Practice", day: "Wed", notes: "Printed sheet" },
+    { subject: "spelling", title: "Spelling Test Practice Sheet", day: "Fri", notes: "Printed sheet" }
   ],
 
   // One-time assignments with due dates. These show in "Due this week".
@@ -1125,7 +1125,7 @@ window.HUB = {
   // The first day this device used the hub; older to-dos never count as unfinished.
   if (!store.start) { store.start = ymd(today); save(); }
 
-  // Repeating weekly assignments (data.js "weekly"), made for this week and next week.
+  // Repeating weekly assignments (data.js "weekly"): every week, with no end date. Each day shows this week and next.
   (H.weekly || []).forEach(function (w) {
     var idx = DAY_KEYS.indexOf(w.day);
     if (idx < 0) return;
