@@ -2137,6 +2137,19 @@ window.HUB = {
   var reciteRun = 0;
   function stopRecite() { reciteRun++; try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} }
   // Each line 4 times on its own (words clear between tries), then the whole passage once.
+  // Apple devices list joke voices first (Albert, Bad News, Bubbles...), which talk slowly and strangely.
+  // Pick a normal-sounding English voice instead.
+  function niceVoice() {
+    var all = [];
+    try { all = speechSynthesis.getVoices(); } catch (e) {}
+    var en = all.filter(function (v) { return /^en/i.test(v.lang); });
+    var odd = /albert|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|deranged|hysterical|junior|ralph|fred|kathy|princess|eddy|flo|grandma|grandpa|reed|rocko|sandy|shelley|novelty/i;
+    var ok = en.filter(function (v) { return !odd.test(v.name); });
+    var want = [/samantha/i, /google us english/i, /aria|jenny|zira/i, /ava|allison|susan|karen|moira|tessa|daniel|serena/i];
+    for (var i = 0; i < want.length; i++) { var m = ok.filter(function (v) { return want[i].test(v.name); }); if (m.length) return m.filter(function (v) { return v.localService; })[0] || m[0]; }
+    return ok.filter(function (v) { return /en-US/i.test(v.lang); })[0] || ok[0] || null;
+  }
+  try { if (window.speechSynthesis) { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = function () {}; } } catch (e) {}
   function playRecite(btn) {
     stopRecite();
     var run = reciteRun, page = document.querySelector(".recite-page"), label = page.querySelector(".recite-round");
@@ -2145,8 +2158,7 @@ window.HUB = {
     lines.forEach(function (l, li) { for (var r = 1; r <= reps; r++) plan.push({ lines: [l], label: "Line " + (li + 1) + (reps > 1 ? ": time " + r + " of " + reps : "") }); });
     if (lines.length > 1) plan.push({ lines: lines, label: "All together!" });
     btn.textContent = "Listening...";
-    var voices = [];
-    try { voices = speechSynthesis.getVoices().filter(function (x) { return /^en/i.test(x.lang); }); } catch (e) {}
+    var voice = niceVoice();
     function round(ri) {
       if (run !== reciteRun) return;
       page.querySelectorAll(".rw").forEach(function (w) { w.classList.remove("on", "now"); });
@@ -2159,8 +2171,8 @@ window.HUB = {
       var ls = plan[ri].lines.slice();
       (function nextLine() {
         if (run !== reciteRun) return;
-        if (!ls.length) { setTimeout(function () { round(ri + 1); }, 1000); return; }
-        sayLine(ls.shift(), function () { setTimeout(nextLine, 500); });
+        if (!ls.length) { setTimeout(function () { round(ri + 1); }, 700); return; }
+        sayLine(ls.shift(), function () { setTimeout(nextLine, 200); });
       })();
     }
     // Reads a whole line at normal speed; each word appears as the voice reaches it.
@@ -2178,8 +2190,8 @@ window.HUB = {
       show(0);
       try {
         var u = new SpeechSynthesisUtterance(text.trim());
-        if (voices.length) u.voice = voices[0];
-        u.rate = 1; u.pitch = 1; u.volume = 1;
+        if (voice) { u.voice = voice; u.lang = voice.lang; }
+        u.rate = 1.05; u.pitch = 1; u.volume = 1;
         u.onboundary = function (e) { if (e.name && e.name !== "word") return; heard = true; var n = 0; while (n + 1 < starts.length && starts[n + 1] <= e.charIndex) n++; show(n); };
         u.onend = finish; u.onerror = finish;
         speechSynthesis.speak(u);
