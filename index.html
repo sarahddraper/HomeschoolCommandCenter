@@ -2407,7 +2407,7 @@ window.HUB = {
     var ti = state.ti, T = H.teacher || {}, subs = T.turnInSubjects || ["Math", "Science", "History", "Writing", "Art", "Books"];
     var html = '<div class="t-head"><h3>Turn In</h3><button class="t-text" data-action="ti-cancel">' + (ti.sent ? "Done" : "Cancel") + "</button></div>";
     if (ti.sent) {
-      return html + '<p class="t-msg">Saved ' + plural(ti.sent, "photo") + " to " + esc(T.turnInFolder || "Student Work") + ' in Google Drive.</p>' +
+      return html + '<p class="t-msg">Saved ' + plural(ti.sent, "photo") + " to " + esc(T.turnInFolder || "Student Work") + " &rsaquo; " + esc(ti.subject || "") + ' in Google Drive.</p>' +
         '<div class="t-row" style="margin-top:14px"><button class="t-btn" data-action="ti-start">Turn in more work</button></div>';
     }
     html += '<p class="t-step">1. Student</p><div class="t-choices">' + kids.map(function (k) {
@@ -2459,7 +2459,8 @@ window.HUB = {
       // Reads Google's answer so a failed save says why instead of pretending it worked
       var fail = function (why) { ti.photos = ti.photos.slice(i); ti.sending = false; ti.bad = true; ti.msg = why; render(); };
       fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "photo", folder: (H.teacher && H.teacher.turnInFolder) || "Student Work", name: name, mime: "image/jpeg", data: ti.photos[i].split(",")[1] }) })
+        body: JSON.stringify({ action: "photo", folder: (H.teacher && H.teacher.turnInFolder) || "Student Work", subfolder: ti.subject,
+          subfolders: (H.teacher && H.teacher.turnInSubjects) || [], name: name, mime: "image/jpeg", data: ti.photos[i].split(",")[1] }) })
         .then(function (r) { return r.text(); })
         .then(function (t) {
           var j = null; try { j = JSON.parse(t); } catch (e) {}
