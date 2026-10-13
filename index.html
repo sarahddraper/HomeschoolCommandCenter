@@ -546,22 +546,38 @@ body .hero-panel .race .boss.slain { transform: rotate(170deg) translate(8px, 8p
     left: calc(6px + var(--rh) * .62); width: calc((100vh - 24px) / .62); width: calc((100dvh - 24px) / .62); bottom: 12px; transform: rotate(-90deg) scale(.62); }
   body:is([data-look="realm"], [data-look="grid"]):has(.hero-panel .race) .wrap { padding-left: calc(var(--rh) * .62 + 14px); padding-right: 10px; }
 }
-/* Percent meter sits at the foot of the rail; the rail starts above it */
-body[data-look="realm"] { --mh: 112px; }
-body[data-look="grid"] { --mh: 96px; }
-body:is([data-look="realm"], [data-look="grid"]) .hero-panel .race { bottom: calc(24px + var(--mh)); width: calc(100vh - 40px - var(--mh)); width: calc(100dvh - 40px - var(--mh)); }
+/* Percent meter sits at the foot of the rail with the points badge under it; the rail starts above them */
+body[data-look="realm"] { --mh: 112px; --pts: 38px; }
+body[data-look="grid"] { --mh: 96px; --pts: 38px; }
+body:is([data-look="realm"], [data-look="grid"]) .hero-panel .race { bottom: calc(24px + var(--mh) + var(--pts)); width: calc(100vh - 40px - var(--mh) - var(--pts)); width: calc(100dvh - 40px - var(--mh) - var(--pts)); }
 body:is([data-look="realm"], [data-look="grid"]) .hero-panel :is(.crest-meter, .disc) {
-  position: fixed; z-index: 41; left: 10px; bottom: 16px; width: var(--rh); height: var(--mh); border-radius: 8px; box-sizing: border-box;
+  position: fixed; z-index: 41; left: 10px; bottom: calc(16px + var(--pts)); width: var(--rh); height: var(--mh); border-radius: 8px; box-sizing: border-box;
   background: linear-gradient(0deg, rgba(4, 8, 14, .85), rgba(4, 8, 14, .6)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--sun) 35%, transparent), 0 6px 20px rgba(0, 0, 0, .6); }
 body[data-look="realm"] .hero-panel .crest-meter img { left: calc(50% - 31px); top: 5px; }
 body[data-look="realm"] .hero-panel .crest-meter b { right: 6px; bottom: 4px; font-size: .95rem; }
 body[data-look="grid"] .hero-panel .disc { padding: 5px; }
+.pts-badge { display: inline-flex; align-items: center; gap: 4px; margin-top: 10px; padding: 6px 12px; border-radius: 8px; font-weight: 700; white-space: nowrap;
+  background: color-mix(in srgb, var(--sun) 18%, transparent); border: 1px solid color-mix(in srgb, var(--sun) 50%, transparent); }
+.pts-badge b { color: var(--sun); font-size: 1.1rem; }
+body:is([data-look="realm"], [data-look="grid"]) .hero-panel .pts-badge { position: fixed; z-index: 41; left: 10px; bottom: 16px; width: var(--rh); height: calc(var(--pts) - 6px); margin: 0; padding: 0 6px;
+  box-sizing: border-box; justify-content: center; font-size: .82rem; background: linear-gradient(0deg, rgba(4, 8, 14, .9), rgba(4, 8, 14, .7)); color: var(--ink);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--sun) 35%, transparent), 0 6px 20px rgba(0, 0, 0, .6); border: 0; }
+.extra-credit { border: 2px solid color-mix(in srgb, var(--sun) 60%, transparent); }
+.xc-pts { color: var(--sun); white-space: nowrap; }
+.code-pop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: rgba(0, 0, 0, .6); padding: 16px; }
+.code-card { width: min(320px, 100%); padding: 16px 18px; border-radius: 12px; background: #FFF8D6; color: #2A2110; border: 2px solid #F2C14E; box-shadow: 0 10px 40px rgba(0, 0, 0, .6); }
+.code-card b { font-size: .85rem; letter-spacing: .08em; text-transform: uppercase; color: #8A5A00; }
+.code-card p { margin: 6px 0; }
+.code-in { width: 100%; box-sizing: border-box; font-size: 1.6rem; letter-spacing: .3em; text-align: center; padding: 6px; border: 2px solid #C9A227; border-radius: 8px; }
+.code-msg { min-height: 1.2em; color: #B3261E; font-weight: 700; }
+.code-card .row { display: flex; gap: 8px; justify-content: flex-end; }
 /* Sylvanas stands upright while she climbs */
 body .hero-panel .quest { --w: 94px; }
 body .hero-panel .quest .cycle.sylv { width: 94px; height: 94px; transform: rotate(90deg); }
 @media (max-width: 600px) {
-  body:is([data-look="realm"], [data-look="grid"]) .hero-panel .race { bottom: calc(18px + var(--mh) * .62); width: calc((100vh - 30px - var(--mh) * .62) / .62); width: calc((100dvh - 30px - var(--mh) * .62) / .62); }
-  body:is([data-look="realm"], [data-look="grid"]) .hero-panel :is(.crest-meter, .disc) { left: 6px; bottom: 12px; transform: scale(.62); transform-origin: 0 100%; }
+  body:is([data-look="realm"], [data-look="grid"]) .hero-panel .race { bottom: calc(18px + (var(--mh) + var(--pts)) * .62); width: calc((100vh - 30px - (var(--mh) + var(--pts)) * .62) / .62); width: calc((100dvh - 30px - (var(--mh) + var(--pts)) * .62) / .62); }
+  body:is([data-look="realm"], [data-look="grid"]) .hero-panel :is(.crest-meter, .disc) { left: 6px; bottom: calc(12px + var(--pts) * .62); transform: scale(.62); transform-origin: 0 100%; }
+  body:is([data-look="realm"], [data-look="grid"]) .hero-panel .pts-badge { left: 6px; bottom: 12px; transform: scale(.62); transform-origin: 0 100%; }
 }
 /* Title, kid names and tabs stay pinned at the top while the page scrolls */
 body:is([data-look="realm"], [data-look="grid"]) .pin { position: sticky; top: 0; z-index: 30; margin: 0 -10px; padding: 8px 10px 10px;
@@ -1047,6 +1063,10 @@ window.HUB = {
   },
 
   // Assignments that repeat every week. "day" is the day it's due.
+  // Extra credit: shows on its day, doesn't count toward the % done, and needs Mom's code to check off.
+  extraCredit: [
+    { subject: "shakespeare", day: "Fri", text: "Recite your Shakespeare passage out loud for Mom", points: 10 }
+  ],
   weekly: [
     { subject: "spelling", title: "Spelling Test Practice Sheet", oldTitle: "Spelling Practice Sheet #2", day: "Fri", notes: "Printed sheet" }
   ],
@@ -1250,6 +1270,37 @@ window.HUB = {
   }
   function aKey(a) { return "a|" + a.id; }
   // What the % counts for a day: that day's subject to-dos plus homework due that same day
+  // ---------- Extra credit (Mom's code required) ----------
+  function extrasOn(d) {
+    var key = DAY_KEYS[d.getDay()], mine = mySubjects().map(function (s) { return s.id; });
+    return (H.extraCredit || []).map(function (x, i) { return { x: x, key: "xc|" + ymd(d) + "|" + i }; })
+      .filter(function (e) { return e.x.day === key && (!e.x.subject || mine.indexOf(e.x.subject) >= 0); });
+  }
+  function pointsTotal() {
+    var m = doneMap(), total = 0, k, list = H.extraCredit || [];
+    for (k in m) if (k.indexOf("xc|") === 0) { var x = list[+k.split("|")[2]]; total += x ? x.points || 0 : 0; }
+    return total;
+  }
+  function codeOk(c) { var h = 7; for (var i = 0; i < c.length; i++) h = (h * 31 + c.charCodeAt(i)) % 1000003; return h === 1868; }
+  function askCode(key, adding) {
+    var old = document.querySelector(".code-pop"); if (old) old.remove();
+    var pop = document.createElement("div");
+    pop.className = "code-pop";
+    pop.innerHTML = '<form class="code-card" role="dialog" aria-label="Mom\'s code"><b>Mom\'s code</b><p>' + (adding ? "Mom, type the code to add the points." : "Mom, type the code to take the points back off.") + "</p>" +
+      '<input class="code-in" type="password" inputmode="numeric" autocomplete="off" maxlength="8" aria-label="Code">' +
+      '<p class="code-msg" aria-live="polite"></p><div class="row"><button type="button" class="btn code-cancel">Cancel</button><button class="btn btn-sun">OK</button></div></form>';
+    document.body.appendChild(pop);
+    var input = pop.querySelector(".code-in"); input.focus();
+    pop.querySelector(".code-cancel").onclick = function () { pop.remove(); };
+    pop.addEventListener("click", function (e) { if (e.target === pop) pop.remove(); });
+    pop.querySelector("form").onsubmit = function (e) {
+      e.preventDefault();
+      if (!codeOk(input.value.trim())) { pop.querySelector(".code-msg").textContent = "That's not the code."; input.value = ""; input.focus(); return; }
+      pop.remove(); toggle(key);
+      var y = window.scrollY; render(); window.scrollTo(0, y);
+      if (adding) { try { confettiBurst(); } catch (er) {} }
+    };
+  }
   function goalsOn(d) {
     var due = myAssignments().filter(function (a) { return a.due === ymd(d); }).map(function (a) { return { key: aKey(a) }; });
     return itemsOn(d).concat(due);
@@ -1491,7 +1542,7 @@ window.HUB = {
       "</div>" +
       (!total ? "" : grid ? discSvg(done, total, p) : realm ? swordSvg(done, total, p) :
         '<div class="ring" style="--p:' + p + '" role="img" aria-label="' + p + ' percent done"><div><span><b>' + p + '%</b><br><small>done</small></span></div></div>') +
-      "</div>" +
+      "</div>" + '<div class="pts-badge" role="img" aria-label="' + pointsTotal() + ' extra credit points"><span aria-hidden="true">&#11088;</span> <b>' + pointsTotal() + "</b> points</div>" +
       (realm && total ? questTrail(from, p, done, total) : "") +
       (grid && total ? '<div class="race" style="--p:' + from + '" data-to="' + p + '" role="img" aria-label="Light cycle ' + p + ' percent of the way to the finish">' +
         '<div class="lane"></div><div class="finish"></div><div class="trail"></div>' + cycleSvg() + '</div>' +
@@ -1519,6 +1570,16 @@ window.HUB = {
     if (dueHere.length) {
       html += '<section class="panel"><h2>' + (isToday ? esc(T.dueToday) : "Due on " + DAY_NAMES[d.getDay()]) + '</h2><div class="list">' +
         dueHere.map(function (a) { return assnRow(a, false); }).join("") + "</div></section>";
+    }
+
+    var extras = extrasOn(d);
+    if (extras.length) {
+      html += '<section class="panel extra-credit"><h2>&#11088; Extra credit</h2><p class="muted">Bonus points! Mom checks this off with her code.</p><ul class="checks">' +
+        extras.map(function (e) {
+          var on = isDone(e.key);
+          return '<li class="item"><button class="check" role="checkbox" aria-checked="' + on + '" data-action="xc" data-key="' + esc(e.key) + '">' +
+            '<span class="box" aria-hidden="true"></span><span class="txt">' + esc(e.x.text) + '</span> <b class="xc-pts">+' + (e.x.points || 0) + " points</b></button></li>";
+        }).join("") + "</ul></section>";
     }
 
     if (!items.length) {
@@ -2275,6 +2336,8 @@ window.HUB = {
       var y = window.scrollY; render(); window.scrollTo(0, y);
       var again = view.querySelector('[data-key="' + CSS.escape(el.dataset.key) + '"]');
       if (again) again.focus({ preventScroll: true });
+    } else if (a === "xc") {
+      askCode(el.dataset.key, !isDone(el.dataset.key));
     } else if (a === "slay") {
       var boss = view.querySelector(".boss"), hero = view.querySelector(".sylv");
       var flight = 0;
