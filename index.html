@@ -2456,10 +2456,18 @@ window.HUB = {
       if (state.ti !== ti) return;
       if (i >= n) { ti.sending = false; ti.sent = n; ti.photos = []; ti.msg = ""; render(); return; }
       ti.msg = "Saving " + (i + 1) + " of " + n + "..."; var m = view.querySelector(".t-msg"); if (m) m.textContent = ti.msg;
-      fetch(H.writingSaveUrl, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+      // Reads Google's answer so a failed save says why instead of pretending it worked
+      var fail = function (why) { ti.photos = ti.photos.slice(i); ti.sending = false; ti.bad = true; ti.msg = why; render(); };
+      fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ action: "photo", folder: (H.teacher && H.teacher.turnInFolder) || "Student Work", name: name, mime: "image/jpeg", data: ti.photos[i].split(",")[1] }) })
-        .then(function () { i++; next(); })
-        .catch(function () { ti.photos = ti.photos.slice(i); ti.sending = false; ti.bad = true; ti.msg = "Couldn't save. Check the internet and try again."; render(); });
+        .then(function (r) { return r.text(); })
+        .then(function (t) {
+          var j = null; try { j = JSON.parse(t); } catch (e) {}
+          if (j && j.ok) { i++; next(); return; }
+          var why = String(t).replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 220);
+          fail("Google Drive didn't save it. Google said: " + (why || "nothing"));
+        })
+        .catch(function () { fail("Couldn't reach Google Drive. Check the internet and try again."); });
     })();
   }
   function turnIn(btn) {
