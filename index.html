@@ -1572,9 +1572,9 @@ window.HUB = {
         dueHere.map(function (a) { return assnRow(a, false); }).join("") + "</div></section>";
     }
 
-    var extras = extrasOn(d);
+    var extras = extrasOn(d), xcHtml = "";
     if (extras.length) {
-      html += '<section class="panel extra-credit"><h2>&#11088; Extra credit</h2><p class="muted">Bonus points! Mom checks this off with her code.</p><ul class="checks">' +
+      xcHtml = '<section class="panel extra-credit"><h2>&#11088; Extra credit</h2><p class="muted">Bonus points! Mom checks this off with her code.</p><ul class="checks">' +
         extras.map(function (e) {
           var on = isDone(e.key);
           return '<li class="item"><button class="check" role="checkbox" aria-checked="' + on + '" data-action="xc" data-key="' + esc(e.key) + '">' +
@@ -1584,7 +1584,7 @@ window.HUB = {
 
     if (!items.length) {
       html += '<section class="panel" style="text-align:center"><h2>No subjects ' + (isToday ? "today" : "this day") + '</h2><p class="muted">Want to work ahead? Tap "' + esc(T.otherBtn) + '" and pick a day.</p></section>';
-      return html;
+      return html + xcHtml;
     }
 
     html += '<div class="subjects-today">';
@@ -1596,7 +1596,7 @@ window.HUB = {
         "</div>" + howTo(s, d) +
         '<ul class="checks">' + mine.map(function (it) { return itemLi(it, checkBtn(it.key, esc(it.text), true), ""); }).join("") + "</ul></article>";
     });
-    return html + "</div>";
+    return html + "</div>" + xcHtml;
   }
 
   // ---------- Due this week ----------
@@ -2153,25 +2153,37 @@ window.HUB = {
         btn.textContent = "\u21BB Play again"; return;
       }
       label.textContent = plan[ri].label;
-      var words = [];
-      plan[ri].lines.forEach(function (l) { words = words.concat(Array.prototype.slice.call(l.querySelectorAll(".rw"))); });
-      step(words, 0, function () { setTimeout(function () { round(ri + 1); }, 1600); });
+      var ls = plan[ri].lines.slice();
+      (function nextLine() {
+        if (run !== reciteRun) return;
+        if (!ls.length) { setTimeout(function () { round(ri + 1); }, 1000); return; }
+        sayLine(ls.shift(), function () { setTimeout(nextLine, 500); });
+      })();
     }
-    function step(words, i, done) {
-      if (run !== reciteRun) return;
-      if (i > 0) words[i - 1].classList.remove("now");
-      if (i >= words.length) { done(); return; }
-      var w = words[i], endLine = w === w.parentNode.lastElementChild && i < words.length - 1, moved = false;
-      w.classList.add("on", "now");
-      var next = function () { if (moved) return; moved = true; setTimeout(function () { step(words, i + 1, done); }, endLine ? 1100 : 450); };
+    // Reads a whole line at normal speed; each word appears as the voice reaches it.
+    function sayLine(line, done) {
+      var words = Array.prototype.slice.call(line.querySelectorAll(".rw")), starts = [], pos = 0, text = "", shown = -1, finished = false, timer = null, heard = false;
+      words.forEach(function (w) { var t = w.textContent; starts.push(pos); text += t + " "; pos += t.length + 1; });
+      function show(n) {
+        for (var i = shown + 1; i <= n && i < words.length; i++) { if (i > 0) words[i - 1].classList.remove("now"); words[i].classList.add("on", "now"); }
+        shown = Math.max(shown, Math.min(n, words.length - 1));
+      }
+      function finish() {
+        clearInterval(timer); if (finished || run !== reciteRun) return; finished = true;
+        show(words.length - 1); words[words.length - 1].classList.remove("now"); done();
+      }
+      show(0);
       try {
-        var u = new SpeechSynthesisUtterance(w.textContent.replace(/[^A-Za-z']/g, ""));
+        var u = new SpeechSynthesisUtterance(text.trim());
         if (voices.length) u.voice = voices[0];
-        u.rate = 0.6; u.pitch = 1; u.volume = 1;
-        u.onend = next; u.onerror = next;
+        u.rate = 1; u.pitch = 1; u.volume = 1;
+        u.onboundary = function (e) { if (e.name && e.name !== "word") return; heard = true; var n = 0; while (n + 1 < starts.length && starts[n + 1] <= e.charIndex) n++; show(n); };
+        u.onend = finish; u.onerror = finish;
         speechSynthesis.speak(u);
       } catch (e) {}
-      setTimeout(next, 2500); // keeps going if the voice never answers
+      // If the voice doesn't report each word, show them at talking pace instead
+      setTimeout(function () { if (!heard && !finished) timer = setInterval(function () { if (heard) return; if (shown < words.length - 1) show(shown + 1); }, 380); }, 450);
+      setTimeout(finish, 1500 + words.length * 900); // keeps going if the voice never answers
     }
     round(0);
   }
