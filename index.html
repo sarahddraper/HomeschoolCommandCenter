@@ -2384,8 +2384,8 @@ window.HUB = {
     }
   });
   function writeTitle(dateStr) {
-    var d = parse(dateStr);
-    return (d.getMonth() + 1) + "-" + d.getDate() + "-" + String(d.getFullYear()).slice(2) + " " + (kidName() || "Student") + " Writing Assignment";
+    // Named for the day it's turned in, like "Aurora-Writing Assignment-10-13-26"
+    return (kidName() || "Student") + "-Writing Assignment-" + shortDate(new Date());
   }
   // ---------- Mom's teacher page ----------
   function shortDate(d) { return (d.getMonth() + 1) + "-" + d.getDate() + "-" + String(d.getFullYear()).slice(2); }
