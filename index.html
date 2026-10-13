@@ -2145,7 +2145,7 @@ window.HUB = {
     var en = all.filter(function (v) { return /^en/i.test(v.lang); });
     var odd = /albert|bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox|deranged|hysterical|junior|ralph|fred|kathy|princess|eddy|flo|grandma|grandpa|reed|rocko|sandy|shelley|novelty/i;
     var ok = en.filter(function (v) { return !odd.test(v.name); });
-    var want = [/samantha/i, /google us english/i, /aria|jenny|zira/i, /ava|allison|susan|karen|moira|tessa|daniel|serena/i];
+    var want = [/samantha/i, /aria|jenny/i, /zira/i, /google us english/i, /ava|allison|susan|karen|moira|tessa|daniel|serena/i];
     for (var i = 0; i < want.length; i++) { var m = ok.filter(function (v) { return want[i].test(v.name); }); if (m.length) return m.filter(function (v) { return v.localService; })[0] || m[0]; }
     return ok.filter(function (v) { return /en-US/i.test(v.lang); })[0] || ok[0] || null;
   }
