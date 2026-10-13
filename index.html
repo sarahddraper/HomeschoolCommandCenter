@@ -762,6 +762,8 @@ body[data-look="calm"] .kid[aria-pressed="true"] { background: #7FA088; border-c
 .t-thumb { position: relative; width: 96px; height: 96px; border-radius: 14px; overflow: hidden; border: 1px solid #ECE9E2; }
 .t-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .t-thumb button { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .92); color: #2E3A36; font-size: 1.1rem; line-height: 1; cursor: pointer; }
+.t-page { position: absolute; left: 6px; bottom: 6px; min-width: 22px; height: 22px; padding: 0 4px; box-sizing: border-box; border-radius: 11px; background: rgba(255, 255, 255, .92); font-size: .8rem; font-weight: 700; display: grid; place-items: center; }
+.t-hint { margin: -2px 0 10px; color: #6F7B76; font-size: .95rem; }
 .t-name { color: #5D6B65; font-size: .95rem; margin: 10px 0 14px; }
 .t-name b { color: #2E3A36; }
 .t-msg { min-height: 1.3em; margin: 10px 0 0; font-weight: 600; color: #3F7A55; }
@@ -2398,7 +2400,7 @@ window.HUB = {
       '<button class="t-big" data-action="ti-start"><span class="t-ico" aria-hidden="true">&#128247;</span><span><b>Turn In</b><small>Take a picture of the kids\' work and save it to Google Drive</small></span></button>') + "</section>";
     html += '<section class="t-card"><h3>Quick links</h3><div class="t-links">' + (T.links || []).map(function (l) {
       var inner = '<span class="t-ico" aria-hidden="true">' + esc(l.icon || "🔗") + '</span><span><b>' + esc(l.name) + "</b><small>" +
-        (l.link ? esc(l.link.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")) : "Link coming soon") + "</small></span>";
+        (l.link ? /drive\.google\.com/.test(l.link) ? "Google Drive" : esc(l.link.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")) : "Link coming soon") + "</small></span>";
       return l.link ? '<a class="t-link" href="' + esc(l.link) + '" target="_blank" rel="noopener">' + inner + "</a>" : '<div class="t-link off" aria-disabled="true">' + inner + "</div>";
     }).join("") + "</div></section>";
     return html;
@@ -2407,7 +2409,7 @@ window.HUB = {
     var ti = state.ti, T = H.teacher || {}, subs = T.turnInSubjects || ["Math", "Science", "History", "Writing", "Art", "Books"];
     var html = '<div class="t-head"><h3>Turn In</h3><button class="t-text" data-action="ti-cancel">' + (ti.sent ? "Done" : "Cancel") + "</button></div>";
     if (ti.sent) {
-      return html + '<p class="t-msg">Saved ' + plural(ti.sent, "photo") + " to " + esc(T.turnInFolder || "Student Work") + " &rsaquo; " + esc(ti.subject || "") + ' in Google Drive.</p>' +
+      return html + '<p class="t-msg">Saved a ' + ti.sent + "-page PDF to " + esc(T.turnInFolder || "Student Work") + " &rsaquo; " + esc(ti.subject || "") + ' in Google Drive.</p>' +
         '<div class="t-row" style="margin-top:14px"><button class="t-btn" data-action="ti-start">Turn in more work</button></div>';
     }
     html += '<p class="t-step">1. Student</p><div class="t-choices">' + kids.map(function (k) {
@@ -2417,13 +2419,13 @@ window.HUB = {
       return '<button class="t-chip" data-action="ti-sub" data-id="' + esc(sb) + '" aria-pressed="' + (ti.subject === sb) + '">' + esc(sb) + "</button>";
     }).join("") + "</div>";
     if (ti.kid && ti.subject) {
-      html += '<p class="t-step">3. Photos</p><div class="t-row">' +
-        '<label class="t-btn"><span aria-hidden="true">&#128247;</span> Take a picture<input type="file" accept="image/*" capture="environment" data-ti-file hidden></label>' +
+      html += '<p class="t-step">3. Pages</p><p class="t-hint">Take a picture of each page. They\'re saved together as one PDF.</p><div class="t-row">' +
+        '<label class="t-btn"><span aria-hidden="true">&#128247;</span> ' + (ti.photos.length ? "Add another page" : "Take a picture") + '<input type="file" accept="image/*" capture="environment" data-ti-file hidden></label>' +
         '<label class="t-btn ghost"><span aria-hidden="true">&#128444;&#65039;</span> Choose photos<input type="file" accept="image/*" multiple data-ti-file hidden></label></div>' +
         (ti.photos.length ? '<div class="t-thumbs">' + ti.photos.map(function (ph, i) {
-          return '<div class="t-thumb"><img src="' + ph + '" alt="Photo ' + (i + 1) + '"><button data-action="ti-del" data-i="' + i + '" aria-label="Remove photo ' + (i + 1) + '">&times;</button></div>';
+          return '<div class="t-thumb"><img src="' + ph.url + '" alt="Page ' + (i + 1) + '"><span class="t-page">' + (i + 1) + '</span><button data-action="ti-del" data-i="' + i + '" aria-label="Remove page ' + (i + 1) + '">&times;</button></div>';
         }).join("") + "</div>" : "") +
-        '<p class="t-name">Saves as <b>' + esc(tiName()) + "</b>" + (ti.photos.length > 1 ? " (each extra photo gets a number)" : "") + "</p>" +
+        '<p class="t-name">Saves as <b>' + esc(tiName()) + ".pdf</b>" + (ti.photos.length ? " (" + plural(ti.photos.length, "page") + ")" : "") + "</p>" +
         '<div class="t-row"><button class="t-btn" data-action="ti-send"' + (ti.photos.length && !ti.sending ? "" : " disabled") + ">" +
         (ti.sending ? "Saving..." : "Save to Google Drive") + "</button></div>";
     }
@@ -2436,7 +2438,7 @@ window.HUB = {
       var k = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement("canvas");
       c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
       c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url); cb(c.toDataURL("image/jpeg", 0.85));
+      URL.revokeObjectURL(url); cb({ url: c.toDataURL("image/jpeg", 0.85), w: c.width, h: c.height });
     };
     img.onerror = function () { URL.revokeObjectURL(url); cb(null); };
     img.src = url;
@@ -2446,30 +2448,57 @@ window.HUB = {
     var files = Array.prototype.slice.call(e.target.files || []), left = files.length;
     files.forEach(function (f) { shrinkPhoto(f, function (d) { if (d) state.ti.photos.push(d); if (--left === 0) render(); }); });
   });
+  // Builds a PDF with one photo per page (letter size, turned sideways for wide photos)
+  function photosToPdf(photos) {
+    var enc = new TextEncoder(), parts = [], len = 0, offs = [];
+    function put(x) { var b = typeof x === "string" ? enc.encode(x) : x; parts.push(b); len += b.length; }
+    function obj(n, body) { offs[n] = len; put(n + " 0 obj\n"); body(); put("\nendobj\n"); }
+    var n = photos.length, kids = [];
+    for (var i = 0; i < n; i++) kids.push((3 + i * 3) + " 0 R");
+    put("%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
+    obj(1, function () { put("<< /Type /Catalog /Pages 2 0 R >>"); });
+    obj(2, function () { put("<< /Type /Pages /Kids [" + kids.join(" ") + "] /Count " + n + " >>"); });
+    photos.forEach(function (ph, i) {
+      var pg = 3 + i * 3, wide = ph.w > ph.h, W = wide ? 792 : 612, Hh = wide ? 612 : 792, m = 18;
+      var k = Math.min((W - 2 * m) / ph.w, (Hh - 2 * m) / ph.h), dw = ph.w * k, dh = ph.h * k;
+      var bin = atob(ph.url.split(",")[1]), jpg = new Uint8Array(bin.length);
+      for (var j = 0; j < bin.length; j++) jpg[j] = bin.charCodeAt(j);
+      var draw = "q " + dw.toFixed(2) + " 0 0 " + dh.toFixed(2) + " " + ((W - dw) / 2).toFixed(2) + " " + ((Hh - dh) / 2).toFixed(2) + " cm /Im0 Do Q";
+      obj(pg, function () { put("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + W + " " + Hh + "] /Resources << /XObject << /Im0 " + (pg + 1) + " 0 R >> >> /Contents " + (pg + 2) + " 0 R >>"); });
+      obj(pg + 1, function () { put("<< /Type /XObject /Subtype /Image /Width " + ph.w + " /Height " + ph.h + " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " + jpg.length + " >>\nstream\n"); put(jpg); put("\nendstream"); });
+      obj(pg + 2, function () { put("<< /Length " + draw.length + " >>\nstream\n" + draw + "\nendstream"); });
+    });
+    var xref = len, total = 3 + n * 3;
+    put("xref\n0 " + total + "\n0000000000 65535 f \n");
+    for (var o = 1; o < total; o++) put(String(offs[o]).padStart(10, "0") + " 00000 n \n");
+    put("trailer\n<< /Size " + total + " /Root 1 0 R >>\nstartxref\n" + xref + "\n%%EOF\n");
+    var out = new Uint8Array(len), p = 0;
+    parts.forEach(function (b) { out.set(b, p); p += b.length; });
+    var s64 = "";
+    for (var c = 0; c < out.length; c += 0x8000) s64 += String.fromCharCode.apply(null, out.subarray(c, c + 0x8000));
+    return btoa(s64);
+  }
   function tiSend() {
     var ti = state.ti;
     if (!ti || ti.sending || !ti.photos.length) return;
     if (!H.writingSaveUrl) { ti.msg = "Google Drive isn't connected yet."; ti.bad = true; render(); return; }
-    var name = tiName(), n = ti.photos.length, i = 0;
-    ti.sending = true; ti.bad = false; ti.msg = "Saving 1 of " + n + "..."; render();
-    (function next() {
-      if (state.ti !== ti) return;
-      if (i >= n) { ti.sending = false; ti.sent = n; ti.photos = []; ti.msg = ""; render(); return; }
-      ti.msg = "Saving " + (i + 1) + " of " + n + "..."; var m = view.querySelector(".t-msg"); if (m) m.textContent = ti.msg;
-      // Reads Google's answer so a failed save says why instead of pretending it worked
-      var fail = function (why) { ti.photos = ti.photos.slice(i); ti.sending = false; ti.bad = true; ti.msg = why; render(); };
-      fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action: "photo", folder: (H.teacher && H.teacher.turnInFolder) || "Student Work", subfolder: ti.subject,
-          subfolders: (H.teacher && H.teacher.turnInSubjects) || [], name: name, mime: "image/jpeg", data: ti.photos[i].split(",")[1] }) })
-        .then(function (r) { return r.text(); })
-        .then(function (t) {
-          var j = null; try { j = JSON.parse(t); } catch (e) {}
-          if (j && j.ok) { i++; next(); return; }
-          var why = String(t).replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 220);
-          fail("Google Drive didn't save it. Google said: " + (why || "nothing"));
-        })
-        .catch(function () { fail("Couldn't reach Google Drive. Check the internet and try again."); });
-    })();
+    var pages = ti.photos.length, data;
+    try { data = photosToPdf(ti.photos); } catch (e) { ti.bad = true; ti.msg = "Couldn't make the PDF on this device."; render(); return; }
+    ti.sending = true; ti.bad = false; ti.msg = "Saving..."; render();
+    // Reads Google's answer so a failed save says why instead of pretending it worked
+    var fail = function (why) { ti.sending = false; ti.bad = true; ti.msg = why; render(); };
+    fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "photo", folder: (H.teacher && H.teacher.turnInFolder) || "Student Work", subfolder: ti.subject,
+        subfolders: (H.teacher && H.teacher.turnInSubjects) || [], name: tiName(), mime: "application/pdf", ext: "pdf", data: data }) })
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        if (state.ti !== ti) return;
+        var j = null; try { j = JSON.parse(t); } catch (e) {}
+        if (j && j.ok) { ti.sending = false; ti.sent = pages; ti.photos = []; ti.msg = ""; render(); return; }
+        var why = String(t).replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 220);
+        fail("Google Drive didn't save it. Google said: " + (why || "nothing"));
+      })
+      .catch(function () { fail("Couldn't reach Google Drive. Check the internet and try again."); });
   }
   function turnIn(btn) {
     var p = document.getElementById("paper"), note = document.querySelector(".spell-note"), text = paperText(p).trim();
