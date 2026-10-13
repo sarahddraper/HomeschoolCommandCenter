@@ -722,6 +722,50 @@ body[data-wormhole] .wrap { position: relative; z-index: 1; }
 .wh-link text { font-size: 30px; letter-spacing: .2em; }
 .wh-text { font-size: 30px; letter-spacing: .18em; }
 @media (prefers-reduced-motion: reduce) { .mael-spin { animation: none; } }
+/* Mom's teacher page: light, quiet, rounded */
+body[data-look="calm"] { --bg: #F5F3EE; --surface: #FFFFFF; --solid: #FFFFFF; --ink: #2E3A36; --muted: #6F7B76; --line: #E3E0D8; --sun: #7FA088; --on-sun: #FFFFFF;
+  background: #F5F3EE; color: #2E3A36; color-scheme: light; }
+body[data-look="calm"] .top h1 { font-family: var(--body); font-weight: 700; color: #3F5A4B; letter-spacing: 0; text-shadow: none; }
+body[data-look="calm"] .top p { color: #6F7B76; }
+body[data-look="calm"] .kid { background: #FFFFFF; border-color: #DCDFD8; color: #2E3A36; }
+body[data-look="calm"] .kid[aria-pressed="true"] { background: #7FA088; border-color: #7FA088; color: #FFFFFF; }
+.t-hello { padding: 6px 4px 0; }
+.t-hello h2 { margin: 2px 0 2px; font: 700 1.9rem/1.2 var(--body); color: #2E3A36; }
+.t-eyebrow { margin: 0; text-transform: uppercase; letter-spacing: .12em; font-size: .75rem; font-weight: 700; color: #7FA088; }
+.t-muted { margin: 0; color: #6F7B76; }
+.t-card { background: #FFFFFF; border: 1px solid #ECE9E2; border-radius: 22px; padding: 20px 22px; margin: 16px 0; box-shadow: 0 1px 2px rgba(46, 58, 54, .04), 0 8px 24px rgba(46, 58, 54, .06); }
+.t-card h3 { margin: 0 0 14px; font: 700 1.15rem/1.3 var(--body); color: #3F5A4B; }
+.t-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.t-text { font: inherit; font-weight: 600; color: #6F7B76; background: none; border: 0; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+.t-text:hover { background: #F1F3EF; }
+.t-big { display: flex; align-items: center; gap: 16px; width: 100%; text-align: left; padding: 18px 20px; border-radius: 18px; border: 0; background: #E7EFE8; color: #2E3A36; cursor: pointer; font: inherit; }
+.t-big:hover { background: #DCE8DE; }
+.t-big b { display: block; font-size: 1.35rem; }
+.t-big small { color: #5D6B65; font-size: .98rem; }
+.t-ico { flex: none; width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; font-size: 1.6rem; background: #FFFFFF; }
+.t-links { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.t-link { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: #FAF9F6; border: 1px solid #ECE9E2; color: #2E3A36; text-decoration: none; min-width: 0; }
+.t-link:hover { background: #F1F5F1; border-color: #CFE0D3; }
+.t-link b { display: block; font-size: 1.02rem; }
+.t-link small { display: block; color: #7A857F; font-size: .85rem; overflow-wrap: anywhere; }
+.t-link .t-ico { width: 42px; height: 42px; border-radius: 12px; font-size: 1.25rem; border: 1px solid #ECE9E2; }
+.t-link.off { opacity: .6; }
+.t-step { margin: 18px 0 8px; font-weight: 700; color: #3F5A4B; }
+.t-choices, .t-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.t-chip { font: inherit; font-weight: 600; padding: 10px 18px; border-radius: 999px; border: 1.5px solid #D9DDD6; background: #FFFFFF; color: #2E3A36; cursor: pointer; }
+.t-chip:hover { border-color: #A9C2AF; }
+.t-chip[aria-pressed="true"] { background: #7FA088; border-color: #7FA088; color: #FFFFFF; }
+.t-btn { display: inline-flex; align-items: center; gap: 8px; font: inherit; font-weight: 700; padding: 12px 20px; border-radius: 14px; border: 1.5px solid #6E937A; background: #6E937A; color: #FFFFFF; cursor: pointer; }
+.t-btn.ghost { background: #FFFFFF; color: #3F5A4B; border-color: #CFD8CF; }
+.t-btn:disabled { opacity: .45; cursor: default; }
+.t-thumbs { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 4px; }
+.t-thumb { position: relative; width: 96px; height: 96px; border-radius: 14px; overflow: hidden; border: 1px solid #ECE9E2; }
+.t-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.t-thumb button { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .92); color: #2E3A36; font-size: 1.1rem; line-height: 1; cursor: pointer; }
+.t-name { color: #5D6B65; font-size: .95rem; margin: 10px 0 14px; }
+.t-name b { color: #2E3A36; }
+.t-msg { min-height: 1.3em; margin: 10px 0 0; font-weight: 600; color: #3F7A55; }
+.t-msg.bad { color: #B3261E; }
 /* Writing page: big kid lined paper */
 .write-page { position: relative; }
 .write-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -945,6 +989,25 @@ window.HUB = {
     { id: "kid2", name: "Roman", theme: "grid" }
   ],
 
+  // Mom's page: a calm teacher page with quick links and a photo Turn In.
+  // Leave a link empty ("") and its button says "Link coming soon".
+  teacher: {
+    name: "Sarah",
+    links: [
+      { name: "PCA Homeschool Hub", link: "https://pcahomeschoolhub.com", icon: "🏫" },
+      { name: "PCA Drive Folder", link: "", icon: "📁" },
+      { name: "Parent Square", link: "https://www.parentsquare.com", icon: "💬" },
+      { name: "Parent Portal", link: "https://pacificcoast.parentstudentportal.com", icon: "🔑" },
+      { name: "Skylight Calendar", link: "https://ourskylight.com", icon: "📅" },
+      { name: "SD City Library", link: "https://www.sandiego.gov/public-library", icon: "📚" },
+      { name: "SD County Library", link: "https://www.sdcl.org", icon: "📖" }
+    ],
+    // Photos of hand-done work go to this Google Drive folder (made the first time),
+    // named like "Aurora - Math - 10-13-26".
+    turnInFolder: "Student Work 2026-2027",
+    turnInSubjects: ["Math", "Science", "History", "Writing", "Art", "Books"]
+  },
+
   // Subjects: which days they happen, what to do, and the links to open.
   // "todo" can be one list for every day, or a different list per day:
   //   todo: { Mon: ["Lesson 1"], Wed: ["Quiz"], default: ["Practice"] }
@@ -1144,6 +1207,9 @@ window.HUB = {
   };
 
   var kids = (H.kids && H.kids.length) ? H.kids : [{ id: "me", name: "" }];
+  // Mom's teacher page sits next to the kids in the picker but isn't a student
+  var TEACHER = H.teacher ? { id: "teacher", name: H.teacher.name || "Teacher", teacher: true } : null;
+  var people = TEACHER ? kids.concat([TEACHER]) : kids;
   var subjects = (H.subjects || []).map(function (s) {
     return Object.assign({ icon: "", color: "blue", days: [], todo: [], links: [] }, s);
   });
@@ -1196,7 +1262,7 @@ window.HUB = {
     viewDate: today,
     showDays: false,
     sel: null,
-    kid: kids.filter(function (k) { return k.id === store.kid; })[0] || (kids.length === 1 ? kids[0] : null)
+    kid: people.filter(function (k) { return k.id === store.kid; })[0] || (people.length === 1 ? people[0] : null)
   };
   function lookName() { var t = state.kid && state.kid.theme; return LOOKS[t] ? t : "default"; }
   function L() { return LOOKS[lookName()]; }
@@ -1983,9 +2049,9 @@ window.HUB = {
   // ---------- render ----------
   var view = document.getElementById("view");
   function renderKids(el) {
-    if (kids.length < 2) { el.innerHTML = ""; return; }
-    el.innerHTML = kids.map(function (k) {
-      return '<button class="kid" data-action="kid" data-id="' + esc(k.id) + '" aria-pressed="' + (!!state.kid && state.kid.id === k.id) + '">' + esc(k.name) + "</button>";
+    if (people.length < 2) { el.innerHTML = ""; return; }
+    el.innerHTML = people.map(function (k) {
+      return '<button class="kid' + (k.teacher ? " kid-teacher" : "") + '" data-action="kid" data-id="' + esc(k.id) + '" aria-pressed="' + (!!state.kid && state.kid.id === k.id) + '">' + esc(k.name) + "</button>";
     }).join("");
   }
   function render() {
@@ -1996,8 +2062,15 @@ window.HUB = {
     document.getElementById("date-line").textContent = fmtLong(today);
     renderKids(document.getElementById("kid-switch"));
     var picker = document.getElementById("picker");
-    picker.hidden = !(kids.length > 1 && !state.kid);
+    picker.hidden = !(people.length > 1 && !state.kid);
     if (!picker.hidden) renderKids(document.getElementById("picker-kids"));
+    var tabsNav = document.querySelector(".tabs"), foot = document.querySelector("footer");
+    if (state.kid && state.kid.teacher) {
+      document.body.setAttribute("data-look", "calm"); setSky(false); document.body.removeAttribute("data-wormhole");
+      tabsNav.hidden = true; foot.hidden = true; stopRecite();
+      view.innerHTML = viewTeacher(); return;
+    }
+    tabsNav.hidden = false; foot.hidden = false;
     document.querySelectorAll(".tab").forEach(function (b) {
       var i = TAB_IDS.indexOf(b.dataset.tab);
       if (T.svgIcons) b.querySelector(".ti").innerHTML = T.svgIcons[i]; else b.querySelector(".ti").textContent = T.icons[i];
@@ -2313,6 +2386,81 @@ window.HUB = {
     var d = parse(dateStr);
     return (d.getMonth() + 1) + "-" + d.getDate() + "-" + String(d.getFullYear()).slice(2) + " " + (kidName() || "Student") + " Writing Assignment";
   }
+  // ---------- Mom's teacher page ----------
+  function shortDate(d) { return (d.getMonth() + 1) + "-" + d.getDate() + "-" + String(d.getFullYear()).slice(2); }
+  function tiName() { var ti = state.ti; return ti.kid + " - " + ti.subject + " - " + shortDate(new Date()); }
+  function viewTeacher() {
+    var T = H.teacher || {}, hour = new Date().getHours();
+    var hello = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+    var html = '<section class="t-hello"><p class="t-eyebrow">Teacher</p><h2>' + hello + ", " + esc(T.name || "Teacher") + '</h2></section>';
+    html += '<section class="t-card">' + (state.ti ? turnInFlow() :
+      '<button class="t-big" data-action="ti-start"><span class="t-ico" aria-hidden="true">&#128247;</span><span><b>Turn In</b><small>Take a picture of the kids\' work and save it to Google Drive</small></span></button>') + "</section>";
+    html += '<section class="t-card"><h3>Quick links</h3><div class="t-links">' + (T.links || []).map(function (l) {
+      var inner = '<span class="t-ico" aria-hidden="true">' + esc(l.icon || "🔗") + '</span><span><b>' + esc(l.name) + "</b><small>" +
+        (l.link ? esc(l.link.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")) : "Link coming soon") + "</small></span>";
+      return l.link ? '<a class="t-link" href="' + esc(l.link) + '" target="_blank" rel="noopener">' + inner + "</a>" : '<div class="t-link off" aria-disabled="true">' + inner + "</div>";
+    }).join("") + "</div></section>";
+    return html;
+  }
+  function turnInFlow() {
+    var ti = state.ti, T = H.teacher || {}, subs = T.turnInSubjects || ["Math", "Science", "History", "Writing", "Art", "Books"];
+    var html = '<div class="t-head"><h3>Turn In</h3><button class="t-text" data-action="ti-cancel">' + (ti.sent ? "Done" : "Cancel") + "</button></div>";
+    if (ti.sent) {
+      return html + '<p class="t-msg">Saved ' + plural(ti.sent, "photo") + " to " + esc(T.turnInFolder || "Student Work") + ' in Google Drive.</p>' +
+        '<div class="t-row" style="margin-top:14px"><button class="t-btn" data-action="ti-start">Turn in more work</button></div>';
+    }
+    html += '<p class="t-step">1. Student</p><div class="t-choices">' + kids.map(function (k) {
+      return '<button class="t-chip" data-action="ti-kid" data-id="' + esc(k.name) + '" aria-pressed="' + (ti.kid === k.name) + '">' + esc(k.name) + "</button>";
+    }).join("") + "</div>";
+    if (ti.kid) html += '<p class="t-step">2. Subject</p><div class="t-choices">' + subs.map(function (sb) {
+      return '<button class="t-chip" data-action="ti-sub" data-id="' + esc(sb) + '" aria-pressed="' + (ti.subject === sb) + '">' + esc(sb) + "</button>";
+    }).join("") + "</div>";
+    if (ti.kid && ti.subject) {
+      html += '<p class="t-step">3. Photos</p><div class="t-row">' +
+        '<label class="t-btn"><span aria-hidden="true">&#128247;</span> Take a picture<input type="file" accept="image/*" capture="environment" data-ti-file hidden></label>' +
+        '<label class="t-btn ghost"><span aria-hidden="true">&#128444;&#65039;</span> Choose photos<input type="file" accept="image/*" multiple data-ti-file hidden></label></div>' +
+        (ti.photos.length ? '<div class="t-thumbs">' + ti.photos.map(function (ph, i) {
+          return '<div class="t-thumb"><img src="' + ph + '" alt="Photo ' + (i + 1) + '"><button data-action="ti-del" data-i="' + i + '" aria-label="Remove photo ' + (i + 1) + '">&times;</button></div>';
+        }).join("") + "</div>" : "") +
+        '<p class="t-name">Saves as <b>' + esc(tiName()) + "</b>" + (ti.photos.length > 1 ? " (each extra photo gets a number)" : "") + "</p>" +
+        '<div class="t-row"><button class="t-btn" data-action="ti-send"' + (ti.photos.length && !ti.sending ? "" : " disabled") + ">" +
+        (ti.sending ? "Saving..." : "Save to Google Drive") + "</button></div>";
+    }
+    return html + '<p class="t-msg' + (ti.bad ? " bad" : "") + '" aria-live="polite">' + esc(ti.msg || "") + "</p>";
+  }
+  // Phone photos are huge; shrink them so they upload quickly but stay easy to read
+  function shrinkPhoto(file, cb) {
+    var url = URL.createObjectURL(file), img = new Image();
+    img.onload = function () {
+      var k = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement("canvas");
+      c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); cb(c.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); cb(null); };
+    img.src = url;
+  }
+  document.addEventListener("change", function (e) {
+    if (!e.target.matches || !e.target.matches("[data-ti-file]") || !state.ti) return;
+    var files = Array.prototype.slice.call(e.target.files || []), left = files.length;
+    files.forEach(function (f) { shrinkPhoto(f, function (d) { if (d) state.ti.photos.push(d); if (--left === 0) render(); }); });
+  });
+  function tiSend() {
+    var ti = state.ti;
+    if (!ti || ti.sending || !ti.photos.length) return;
+    if (!H.writingSaveUrl) { ti.msg = "Google Drive isn't connected yet."; ti.bad = true; render(); return; }
+    var name = tiName(), n = ti.photos.length, i = 0;
+    ti.sending = true; ti.bad = false; ti.msg = "Saving 1 of " + n + "..."; render();
+    (function next() {
+      if (state.ti !== ti) return;
+      if (i >= n) { ti.sending = false; ti.sent = n; ti.photos = []; ti.msg = ""; render(); return; }
+      ti.msg = "Saving " + (i + 1) + " of " + n + "..."; var m = view.querySelector(".t-msg"); if (m) m.textContent = ti.msg;
+      fetch(H.writingSaveUrl, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "photo", folder: (H.teacher && H.teacher.turnInFolder) || "Student Work", name: name, mime: "image/jpeg", data: ti.photos[i].split(",")[1] }) })
+        .then(function () { i++; next(); })
+        .catch(function () { ti.photos = ti.photos.slice(i); ti.sending = false; ti.bad = true; ti.msg = "Couldn't save. Check the internet and try again."; render(); });
+    })();
+  }
   function turnIn(btn) {
     var p = document.getElementById("paper"), note = document.querySelector(".spell-note"), text = paperText(p).trim();
     if (!text) { note.textContent = "Write something first!"; p.focus(); return; }
@@ -2382,8 +2530,21 @@ window.HUB = {
       }
       setTimeout(function () { if (boss && !still) boss.classList.add("hit"); playClang(); }, flight);
       setTimeout(function () { if (!isDone(el.dataset.key)) toggle(el.dataset.key); var y2 = window.scrollY; render(); window.scrollTo(0, y2); }, still ? 0 : 1000 + flight);
+    } else if (a === "ti-start") {
+      state.ti = { photos: [] }; render();
+    } else if (a === "ti-cancel") {
+      state.ti = null; render();
+    } else if (a === "ti-kid") {
+      if (!state.ti.sending) { state.ti.kid = el.dataset.id; state.ti.msg = ""; render(); }
+    } else if (a === "ti-sub") {
+      if (!state.ti.sending) { state.ti.subject = el.dataset.id; state.ti.msg = ""; render(); }
+    } else if (a === "ti-del") {
+      if (!state.ti.sending) { state.ti.photos.splice(+el.dataset.i, 1); render(); }
+    } else if (a === "ti-send") {
+      tiSend();
     } else if (a === "kid") {
-      state.kid = kids.filter(function (k) { return k.id === el.dataset.id; })[0] || null;
+      state.ti = null;
+      state.kid = people.filter(function (k) { return k.id === el.dataset.id; })[0] || null;
       store.kid = state.kid && state.kid.id; state.sel = null; save(); render();
     } else if (a === "toggle-days") {
       state.showDays = !state.showDays; render();
