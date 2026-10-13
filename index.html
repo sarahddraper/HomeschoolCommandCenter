@@ -1019,8 +1019,10 @@ window.HUB = {
     },
     {
       id: "shakespeare", name: "Shakespeare", icon: "🎭", color: "teal",
-      days: ["Tue"],
+      days: ["Tue", "Wed", "Thu"],
       instructions: "Press Listen and learn. Listen as each word appears, then say it with me.",
+      // How many times each line plays before the whole passage plays once
+      repeats: { Tue: 4, Wed: 2, Thu: 1 },
       todo: [
         { text: "Shakespeare memorization", recite: true }
       ],
@@ -2123,7 +2125,7 @@ window.HUB = {
     var r = state.recite, s = subjectById[r.id], lines = s && passageFor(s, r.date) || [], n = 0;
     return '<section class="panel recite-page">' +
       '<div class="write-top"><button class="btn" data-action="write-back">&larr; Back</button><span class="write-date">' + esc(fmtLong(parse(r.date))) + "</span></div>" +
-      '<div class="prompt-card"><small>Memorize this</small><p>Press play. Each line plays 4 times, then the whole thing once. Say each word out loud with me.</p></div>' +
+      '<div class="prompt-card"><small>Memorize this</small><p>Press play. ' + (function (n) { return n === 1 ? "Each line plays once" : n === 2 ? "Each line plays twice" : "Each line plays " + n + " times"; })((s && s.repeats || {})[DAY_KEYS[parse(r.date).getDay()]] || 4) + ', then the whole thing once. Say each word out loud with me.</p></div>' +
       '<div class="recite-lines">' + (lines.length ? lines.map(function (line, li) {
         return '<p class="recite-line' + (li === 0 ? " big" : "") + '">' + line.split(/\s+/).filter(Boolean).map(function (w) {
           return '<span class="rw" data-n="' + (n++) + '">' + esc(w) + "</span>";
@@ -2139,7 +2141,8 @@ window.HUB = {
     stopRecite();
     var run = reciteRun, page = document.querySelector(".recite-page"), label = page.querySelector(".recite-round");
     var lines = Array.prototype.slice.call(page.querySelectorAll(".recite-line")), plan = [];
-    lines.forEach(function (l, li) { for (var r = 1; r <= 4; r++) plan.push({ lines: [l], label: "Line " + (li + 1) + ": time " + r + " of 4" }); });
+    var sub = subjectById[state.recite.id] || {}, reps = (sub.repeats || {})[DAY_KEYS[parse(state.recite.date).getDay()]] || 4;
+    lines.forEach(function (l, li) { for (var r = 1; r <= reps; r++) plan.push({ lines: [l], label: "Line " + (li + 1) + (reps > 1 ? ": time " + r + " of " + reps : "") }); });
     if (lines.length > 1) plan.push({ lines: lines, label: "All together!" });
     btn.textContent = "Listening...";
     var voices = [];
