@@ -741,6 +741,9 @@ body[data-look="calm"] .kid[aria-pressed="true"] { background: #7FA088; border-c
 .t-big { display: flex; align-items: center; gap: 16px; width: 100%; text-align: left; padding: 18px 20px; border-radius: 18px; border: 0; background: #E7EFE8; color: #2E3A36; cursor: pointer; font: inherit; }
 .t-big:hover { background: #DCE8DE; }
 .t-big-b { background: #EAF0F6; }
+.t-big-c { background: #F6EFE4; }
+.t-big-c:hover { background: #F1E6D5; }
+.hooky-big { font-size: 3.5rem; line-height: 1; margin-bottom: 6px; }
 .t-big-b:hover { background: #DEE7F1; }
 .t-area { width: 100%; box-sizing: border-box; font: inherit; font-size: 1.05rem; line-height: 1.45; padding: 12px 14px; border-radius: 14px; border: 1.5px solid #D9DDD6; background: #FCFBF8; color: #2E3A36; resize: vertical; }
 .t-area:focus { outline: none; border-color: #7FA088; box-shadow: 0 0 0 3px #E7EFE8; }
@@ -1246,6 +1249,8 @@ window.HUB = {
   function fmtShort(d) { return DAY_KEYS[d.getDay()] + ", " + MONTHS[d.getMonth()].slice(0, 3) + " " + d.getDate(); }
 
   var today = startOfDay(new Date());
+  var hookyDays = [];
+  try { hookyDays = JSON.parse(localStorage.getItem("homeschool-hub-hooky")) || []; } catch (e) {}
   // The first day this device used the hub; older to-dos never count as unfinished.
   if (!store.start) { store.start = ymd(today); save(); }
 
@@ -1300,7 +1305,10 @@ window.HUB = {
     var sp = special(d);
     return sp ? sp.filter(function (e) { return e.subject === s.id; })[0] || null : null;
   }
+  // Mom's "Play Hooky" days: nothing on the schedule at all
+  function isHooky(d) { return (hookyDays || []).indexOf(ymd(d)) >= 0; }
   function subjectsOn(d, all) {
+    if (isHooky(d)) return [];
     var sp = special(d);
     if (sp) return sp.map(function (e) { return subjectById[e.subject]; }).filter(function (s) { return s && (all || !s.mapOnly); });
     var key = DAY_KEYS[d.getDay()];
@@ -1392,7 +1400,7 @@ window.HUB = {
     };
   }
   function goalsOn(d) {
-    var due = myAssignments().filter(function (a) { return a.due === ymd(d); }).map(function (a) { return { key: aKey(a) }; });
+    var due = isHooky(d) ? [] : myAssignments().filter(function (a) { return a.due === ymd(d); }).map(function (a) { return { key: aKey(a) }; });
     return itemsOn(d).concat(due);
   }
 
@@ -1656,13 +1664,13 @@ window.HUB = {
 
     if (!isToday) html += '<div class="banner info">You can work ahead or catch up here. Check marks count for ' + fmtLong(d) + ".</div>";
 
-    var dueHere = myAssignments().filter(function (a) { return a.due === ymd(d); });
+    var dueHere = isHooky(d) ? [] : myAssignments().filter(function (a) { return a.due === ymd(d); });
     if (dueHere.length) {
       html += '<section class="panel"><h2>' + (isToday ? esc(T.dueToday) : "Due on " + DAY_NAMES[d.getDay()]) + '</h2><div class="list">' +
         dueHere.map(function (a) { return assnRow(a, false); }).join("") + "</div></section>";
     }
 
-    var extras = extrasOn(d), xcHtml = "";
+    var extras = isHooky(d) ? [] : extrasOn(d), xcHtml = "";
     if (extras.length) {
       xcHtml = '<section class="panel extra-credit"><h2>&#11088; Extra credit</h2><p class="muted">Bonus points! Mom checks this off with her code.</p><ul class="checks">' +
         extras.map(function (e) {
@@ -1672,6 +1680,9 @@ window.HUB = {
         }).join("") + "</ul></section>";
     }
 
+    if (isHooky(d)) {
+      return html + '<section class="panel hooky-day" style="text-align:center"><div class="hooky-big" aria-hidden="true">&#127881;</div><h2>Hooky day!</h2><p class="muted">No school ' + (isToday ? "today" : "this day") + '. Mom says go have fun!</p></section>';
+    }
     if (!items.length) {
       html += '<section class="panel" style="text-align:center"><h2>No subjects ' + (isToday ? "today" : "this day") + '</h2><p class="muted">Want to work ahead? Tap "' + esc(T.otherBtn) + '" and pick a day.</p></section>';
       return html + xcHtml;
@@ -2419,6 +2430,8 @@ window.HUB = {
       '<button class="t-big" data-action="ti-start"><span class="t-ico" aria-hidden="true">&#128247;</span><span><b>Turn In</b><small>Take a picture of the kids\' work and save it to Google Drive</small></span></button>') + "</section>";
     html += '<section class="t-card">' + (state.wp ? promptFlow() :
       '<button class="t-big t-big-b" data-action="wp-start"><span class="t-ico" aria-hidden="true">&#9998;&#65039;</span><span><b>What\'s the writing prompt?</b><small>Type the prompt for an upcoming writing day</small></span></button>') + "</section>";
+    html += '<section class="t-card">' + (state.hk ? hookyFlow() :
+      '<button class="t-big t-big-c" data-action="hk-start"><span class="t-ico" aria-hidden="true">&#127881;</span><span><b>Play Hooky</b><small>Pick days with no school. Everything on those days is cancelled.</small></span></button>') + "</section>";
     html += '<section class="t-card">' + skipCard() + "</section>";
     html += '<section class="t-card"><h3>Quick links</h3><div class="t-links">' + (T.links || []).map(function (l) {
       var inner = '<span class="t-ico" aria-hidden="true">' + esc(l.icon || "🔗") + '</span><span><b>' + esc(l.name) + "</b><small>" +
@@ -2529,6 +2542,33 @@ window.HUB = {
         render();
       })
       .catch(function () { delete skipBusy[kid + date]; skipMsg = { text: "Couldn't reach Google. Check the internet and try again.", bad: true }; render(); });
+  }
+  function hookyFlow() {
+    var days = [];
+    for (var i = 0; i < 11; i++) { var d = addDays(today, i); if (d.getDay() !== 0 && d.getDay() !== 6) days.push(d); }
+    return '<div class="t-head"><h3>Play Hooky</h3><button class="t-text" data-action="hk-cancel">Done</button></div>' +
+      '<p class="t-hint">Tap a day to cancel everything on it for both kids. Tap again to bring it back.</p><div class="t-choices">' + days.map(function (d) {
+        var key = ymd(d), on = isHooky(d), busy = skipBusy["h" + key];
+        return '<button class="t-chip" data-action="hooky" data-id="' + key + '" aria-pressed="' + on + '"' + (busy ? " disabled" : "") + ">" +
+          DAY_NAMES[d.getDay()].slice(0, 3) + " " + (d.getMonth() + 1) + "/" + d.getDate() + (key === ymd(today) ? " (today)" : "") + (on ? " &middot; hooky" : "") + "</button>";
+      }).join("") + "</div>" +
+      '<p class="t-msg' + (state.hk.bad ? " bad" : "") + '" aria-live="polite">' + esc(state.hk.msg || "") + "</p>";
+  }
+  function toggleHooky(date) {
+    if (!H.writingSaveUrl) return;
+    var on = !isHooky(parse(date)), hk = state.hk;
+    skipBusy["h" + date] = true; hk.msg = "Saving..."; hk.bad = false; render();
+    fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "toggleDate", key: "hooky", who: "all", date: date, on: on }) })
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        var j = null; try { j = JSON.parse(t); } catch (e) {}
+        delete skipBusy["h" + date];
+        if (!j || !j.ok || !j.dates) { hk.bad = true; hk.msg = "Couldn't save. Your Google script may need the latest code."; render(); return; }
+        applyDates(j.dates);
+        hk.msg = on ? fmtLong(parse(date)) + " is a hooky day. Nothing is scheduled." : fmtLong(parse(date)) + " is back to normal.";
+        render();
+      })
+      .catch(function () { delete skipBusy["h" + date]; hk.bad = true; hk.msg = "Couldn't reach Google. Check the internet and try again."; render(); });
   }
   function turnInFlow() {
     var ti = state.ti, T = H.teacher || {}, subs = T.turnInSubjects || ["Math", "Science", "History", "Writing", "Art", "Books"];
@@ -2694,6 +2734,12 @@ window.HUB = {
       }
       setTimeout(function () { if (boss && !still) boss.classList.add("hit"); playClang(); }, flight);
       setTimeout(function () { if (!isDone(el.dataset.key)) toggle(el.dataset.key); var y2 = window.scrollY; render(); window.scrollTo(0, y2); }, still ? 0 : 1000 + flight);
+    } else if (a === "hk-start") {
+      state.hk = {}; render();
+    } else if (a === "hk-cancel") {
+      state.hk = null; render();
+    } else if (a === "hooky") {
+      toggleHooky(el.dataset.id);
     } else if (a === "early") {
       toggleEarly(el.dataset.kid, el.dataset.id);
     } else if (a === "skip") {
@@ -2802,6 +2848,11 @@ window.HUB = {
   }
   // Prompts come from three places; later ones win: data.js, Mom's Google Sheet, and prompts Mom
   // types on her teacher page (kept by her Google script).
+  // Date lists Mom sets on her page, kept by her Google script (e.g. dates.hooky.all = ["2026-10-20"])
+  function applyDates(dates) {
+    hookyDays = (dates.hooky && dates.hooky.all) || [];
+    try { localStorage.setItem("homeschool-hub-hooky", JSON.stringify(hookyDays)); } catch (e) {}
+  }
   var EKEY = "homeschool-hub-test-early", spellSkips = {}, spellEarly = {}, sheetPrompts = {}, momPrompts = {}, PKEY = "homeschool-hub-prompts", MKEY = "homeschool-hub-mom-prompts";
   function refreshPrompts() { applyPrompts(sheetPrompts); applyPrompts(momPrompts); if (!(state.tab === "write" || state.ti || state.wp)) render(); }
   try { sheetPrompts = JSON.parse(localStorage.getItem(PKEY)) || {}; } catch (e) {}
@@ -2824,6 +2875,7 @@ window.HUB = {
         try { localStorage.setItem(EKEY, JSON.stringify(spellEarly)); } catch (e) {}
         if (!(state.tab === "write" || state.wp || state.ti)) render();
       }
+      if (j && j.dates) { applyDates(j.dates); if (!(state.tab === "write" || state.wp || state.ti)) render(); }
       if (!j || !j.prompts) return;
       momPrompts = j.prompts;
       try { localStorage.setItem(MKEY, JSON.stringify(momPrompts)); } catch (e) {}
