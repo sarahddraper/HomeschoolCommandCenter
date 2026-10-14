@@ -2404,6 +2404,7 @@ window.HUB = {
       '<button class="t-big" data-action="ti-start"><span class="t-ico" aria-hidden="true">&#128247;</span><span><b>Turn In</b><small>Take a picture of the kids\' work and save it to Google Drive</small></span></button>') + "</section>";
     html += '<section class="t-card">' + (state.wp ? promptFlow() :
       '<button class="t-big t-big-b" data-action="wp-start"><span class="t-ico" aria-hidden="true">&#9998;&#65039;</span><span><b>What\'s the writing prompt?</b><small>Type the prompt for an upcoming writing day</small></span></button>') + "</section>";
+    html += '<section class="t-card">' + skipCard() + "</section>";
     html += '<section class="t-card"><h3>Quick links</h3><div class="t-links">' + (T.links || []).map(function (l) {
       var inner = '<span class="t-ico" aria-hidden="true">' + esc(l.icon || "🔗") + '</span><span><b>' + esc(l.name) + "</b><small>" +
         (l.link ? /drive\.google\.com/.test(l.link) ? "Google Drive" : esc(l.link.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")) : "Link coming soon") + "</small></span>";
@@ -2453,6 +2454,39 @@ window.HUB = {
         render();
       })
       .catch(function () { wp.saving = false; wp.bad = true; wp.msg = "Couldn't reach Google. Check the internet and try again."; render(); });
+  }
+  // Spelling: let a kid skip new words on an upcoming Tuesday or Wednesday (they review their Study List instead)
+  function skipCard() {
+    var days = [];
+    for (var i = 0; i < 14; i++) { var d = addDays(today, i), k = DAY_KEYS[d.getDay()]; if (k === "Tue" || k === "Wed") days.push(d); }
+    skipBusy = skipBusy || {}; skipMsg = skipMsg || {};
+    var html = '<h3>Spelling: skip new words</h3><p class="t-hint">Tap a day to give that kid a review day. They practice their Study List (this week\'s missed words plus last test\'s) instead of a new lesson.</p>';
+    kids.forEach(function (k) {
+      var mine = (spellSkips || {})[k.name] || [];
+      html += '<p class="t-step">' + esc(k.name) + '</p><div class="t-choices">' + days.map(function (d) {
+        var key = ymd(d), on = mine.indexOf(key) >= 0, busy = skipBusy[k.name + key];
+        return '<button class="t-chip" data-action="skip" data-kid="' + esc(k.name) + '" data-id="' + key + '" aria-pressed="' + on + '"' + (busy ? " disabled" : "") + ">" +
+          DAY_NAMES[d.getDay()].slice(0, 3) + " " + (d.getMonth() + 1) + "/" + d.getDate() + (key === ymd(today) ? " (today)" : "") + (on ? " &middot; review" : "") + "</button>";
+      }).join("") + "</div>";
+    });
+    return html + '<p class="t-msg' + (skipMsg.bad ? " bad" : "") + '" aria-live="polite">' + esc(skipMsg.text || "") + "</p>";
+  }
+  var skipBusy = {}, skipMsg = {};
+  function toggleSkip(kid, date) {
+    if (!H.writingSaveUrl) return;
+    var on = ((spellSkips || {})[kid] || []).indexOf(date) < 0;
+    skipBusy[kid + date] = true; skipMsg = { text: "Saving..." }; render();
+    fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "spellingSkip", kid: kid, date: date, skip: on }) })
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        var j = null; try { j = JSON.parse(t); } catch (e) {}
+        delete skipBusy[kid + date];
+        if (!j || !j.ok || !j.spellingSkip) { skipMsg = { text: "Couldn't save. Your Google script may need the latest code.", bad: true }; render(); return; }
+        spellSkips = j.spellingSkip;
+        skipMsg = { text: kid + (on ? " will review instead of new words on " : " gets new words again on ") + fmtLong(parse(date)) + "." };
+        render();
+      })
+      .catch(function () { delete skipBusy[kid + date]; skipMsg = { text: "Couldn't reach Google. Check the internet and try again.", bad: true }; render(); });
   }
   function turnInFlow() {
     var ti = state.ti, T = H.teacher || {}, subs = T.turnInSubjects || ["Math", "Science", "History", "Writing", "Art", "Books"];
@@ -2618,6 +2652,8 @@ window.HUB = {
       }
       setTimeout(function () { if (boss && !still) boss.classList.add("hit"); playClang(); }, flight);
       setTimeout(function () { if (!isDone(el.dataset.key)) toggle(el.dataset.key); var y2 = window.scrollY; render(); window.scrollTo(0, y2); }, still ? 0 : 1000 + flight);
+    } else if (a === "skip") {
+      toggleSkip(el.dataset.kid, el.dataset.id);
     } else if (a === "wp-start") {
       state.wp = {}; render();
     } else if (a === "wp-cancel") {
@@ -2722,7 +2758,7 @@ window.HUB = {
   }
   // Prompts come from three places; later ones win: data.js, Mom's Google Sheet, and prompts Mom
   // types on her teacher page (kept by her Google script).
-  var sheetPrompts = {}, momPrompts = {}, PKEY = "homeschool-hub-prompts", MKEY = "homeschool-hub-mom-prompts";
+  var spellSkips = {}, sheetPrompts = {}, momPrompts = {}, PKEY = "homeschool-hub-prompts", MKEY = "homeschool-hub-mom-prompts";
   function refreshPrompts() { applyPrompts(sheetPrompts); applyPrompts(momPrompts); if (!(state.tab === "write" || state.ti || state.wp)) render(); }
   try { sheetPrompts = JSON.parse(localStorage.getItem(PKEY)) || {}; } catch (e) {}
   try { momPrompts = JSON.parse(localStorage.getItem(MKEY)) || {}; } catch (e) {}
@@ -2737,7 +2773,8 @@ window.HUB = {
     }).catch(function () {});
   }
   if (H.writingSaveUrl) {
-    fetch(H.writingSaveUrl + "?action=prompts", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
+    fetch(H.writingSaveUrl + "?action=settings", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j && j.spellingSkip) { spellSkips = j.spellingSkip; if (state.kid && state.kid.teacher && !state.wp && !state.ti) render(); }
       if (!j || !j.prompts) return;
       momPrompts = j.prompts;
       try { localStorage.setItem(MKEY, JSON.stringify(momPrompts)); } catch (e) {}
