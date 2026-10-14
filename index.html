@@ -1304,7 +1304,7 @@ window.HUB = {
     var sp = special(d);
     if (sp) return sp.map(function (e) { return subjectById[e.subject]; }).filter(function (s) { return s && (all || !s.mapOnly); });
     var key = DAY_KEYS[d.getDay()];
-    return mySubjects().filter(function (s) { return s.days.indexOf(key) >= 0 && (all || !s.mapOnly); });
+    return mySubjects().filter(function (s) { return s.days.indexOf(key) >= 0 && (all || !s.mapOnly) && !(s.id === "spelling" && key === "Fri" && testEarly(kidName(), addDays(d, -1))); });
   }
   function todosFor(s, d) {
     var se = specialEntry(s, d);
@@ -1315,8 +1315,18 @@ window.HUB = {
     }
     var kv = kidVersion(s, d), t = kv && kv.todo ? kv.todo : s.todo;
     if (Array.isArray(t)) return t;
-    if (t && typeof t === "object") return t[DAY_KEYS[d.getDay()]] || t["default"] || [];
+    if (t && typeof t === "object") return t[spellDay(s, d)] || t["default"] || [];
     return [];
+  }
+  // Mom can move a kid's Friday spelling test to Thursday; that Thursday shows Friday's tasks
+  // and the Friday after gets regular practice instead.
+  function testEarly(name, d) { return ((spellEarly || {})[name] || []).indexOf(ymd(d)) >= 0; }
+  function spellDay(s, d) {
+    var k = DAY_KEYS[d.getDay()], who = kidName();
+    if (s.id !== "spelling" || !who) return k;
+    if (k === "Thu" && testEarly(who, d)) return "Fri";
+    if (k === "Fri" && testEarly(who, addDays(d, -1))) return "default";
+    return k;
   }
   function itemsOn(d) {
     var date = ymd(d), out = [];
@@ -1341,7 +1351,12 @@ window.HUB = {
     save();
   }
   function myAssignments() {
-    return assignments.filter(forKid).sort(function (a, b) { return a.due < b.due ? -1 : a.due > b.due ? 1 : 0; });
+    // On a test-early week, Friday spelling homework is due Thursday instead (same check mark)
+    return assignments.filter(forKid).map(function (a) {
+      if (a.subject !== "spelling") return a;
+      var dd = parse(a.due);
+      return DAY_KEYS[dd.getDay()] === "Fri" && testEarly(kidName(), addDays(dd, -1)) ? Object.assign({}, a, { due: ymd(addDays(dd, -1)) }) : a;
+    }).sort(function (a, b) { return a.due < b.due ? -1 : a.due > b.due ? 1 : 0; });
   }
   function aKey(a) { return "a|" + a.id; }
   // What the % counts for a day: that day's subject to-dos plus homework due that same day
@@ -1412,7 +1427,7 @@ window.HUB = {
     var se = specialEntry(s, d || today);
     var kv = kidVersion(s, d);
     var ins = se && se.instructions ? se.instructions : kv && kv.instructions ? kv.instructions : s.instructions;
-    if (ins && typeof ins === "object") ins = ins[DAY_KEYS[(d || today).getDay()]] || ins["default"] || "";
+    if (ins && typeof ins === "object") ins = ins[spellDay(s, d || today)] || ins["default"] || "";
     return ins ? '<p class="how"><b>How to do it:</b> ' + esc(ins) + "</p>" : "";
   }
   // A checklist line, with its own "Open" button when the task has a link.
@@ -2460,7 +2475,7 @@ window.HUB = {
     var days = [];
     for (var i = 0; i < 14; i++) { var d = addDays(today, i), k = DAY_KEYS[d.getDay()]; if (k === "Tue" || k === "Wed") days.push(d); }
     skipBusy = skipBusy || {}; skipMsg = skipMsg || {};
-    var html = '<h3>Spelling: skip new words</h3><p class="t-hint">Tap a day to give that kid a review day. They practice their Study List (this week\'s missed words plus last test\'s) instead of a new lesson.</p>';
+    var html = '<h3>Spelling: review days</h3><p class="t-hint">Tap a day to give that kid a review day. They practice their Study List (this week\'s missed words plus last test\'s) instead of a new lesson.</p>';
     kids.forEach(function (k) {
       var mine = (spellSkips || {})[k.name] || [];
       html += '<p class="t-step">' + esc(k.name) + '</p><div class="t-choices">' + days.map(function (d) {
@@ -2469,7 +2484,34 @@ window.HUB = {
           DAY_NAMES[d.getDay()].slice(0, 3) + " " + (d.getMonth() + 1) + "/" + d.getDate() + (key === ymd(today) ? " (today)" : "") + (on ? " &middot; review" : "") + "</button>";
       }).join("") + "</div>";
     });
+    var thus = [];
+    for (var j = 0; j < 14; j++) { var td = addDays(today, j); if (DAY_KEYS[td.getDay()] === "Thu") thus.push(td); }
+    html += '<h3 style="margin-top:22px">Spelling: take the test early</h3><p class="t-hint">Tap a Thursday to move that kid\'s Friday test to Thursday.</p>';
+    kids.forEach(function (k) {
+      html += '<p class="t-step">' + esc(k.name) + '</p><div class="t-choices">' + thus.map(function (d) {
+        var key = ymd(d), on = testEarly(k.name, d), busy = skipBusy["e" + k.name + key];
+        return '<button class="t-chip" data-action="early" data-kid="' + esc(k.name) + '" data-id="' + key + '" aria-pressed="' + on + '"' + (busy ? " disabled" : "") + ">" +
+          "Thu " + (d.getMonth() + 1) + "/" + d.getDate() + (key === ymd(today) ? " (today)" : "") + (on ? " &middot; test day" : "") + "</button>";
+      }).join("") + "</div>";
+    });
     return html + '<p class="t-msg' + (skipMsg.bad ? " bad" : "") + '" aria-live="polite">' + esc(skipMsg.text || "") + "</p>";
+  }
+  function toggleEarly(kid, date) {
+    if (!H.writingSaveUrl) return;
+    var on = !testEarly(kid, parse(date)), bk = "e" + kid + date;
+    skipBusy[bk] = true; skipMsg = { text: "Saving..." }; render();
+    fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "testEarly", kid: kid, date: date, on: on }) })
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        var j = null; try { j = JSON.parse(t); } catch (e) {}
+        delete skipBusy[bk];
+        if (!j || !j.ok || !j.testEarly) { skipMsg = { text: "Couldn't save. Your Google script may need the latest code.", bad: true }; render(); return; }
+        spellEarly = j.testEarly;
+        try { localStorage.setItem(EKEY, JSON.stringify(spellEarly)); } catch (e) {}
+        skipMsg = { text: on ? kid + "'s spelling test moves to " + fmtLong(parse(date)) + "." : kid + "'s spelling test is back on Friday." };
+        render();
+      })
+      .catch(function () { delete skipBusy[bk]; skipMsg = { text: "Couldn't reach Google. Check the internet and try again.", bad: true }; render(); });
   }
   var skipBusy = {}, skipMsg = {};
   function toggleSkip(kid, date) {
@@ -2652,6 +2694,8 @@ window.HUB = {
       }
       setTimeout(function () { if (boss && !still) boss.classList.add("hit"); playClang(); }, flight);
       setTimeout(function () { if (!isDone(el.dataset.key)) toggle(el.dataset.key); var y2 = window.scrollY; render(); window.scrollTo(0, y2); }, still ? 0 : 1000 + flight);
+    } else if (a === "early") {
+      toggleEarly(el.dataset.kid, el.dataset.id);
     } else if (a === "skip") {
       toggleSkip(el.dataset.kid, el.dataset.id);
     } else if (a === "wp-start") {
@@ -2758,10 +2802,11 @@ window.HUB = {
   }
   // Prompts come from three places; later ones win: data.js, Mom's Google Sheet, and prompts Mom
   // types on her teacher page (kept by her Google script).
-  var spellSkips = {}, sheetPrompts = {}, momPrompts = {}, PKEY = "homeschool-hub-prompts", MKEY = "homeschool-hub-mom-prompts";
+  var EKEY = "homeschool-hub-test-early", spellSkips = {}, spellEarly = {}, sheetPrompts = {}, momPrompts = {}, PKEY = "homeschool-hub-prompts", MKEY = "homeschool-hub-mom-prompts";
   function refreshPrompts() { applyPrompts(sheetPrompts); applyPrompts(momPrompts); if (!(state.tab === "write" || state.ti || state.wp)) render(); }
   try { sheetPrompts = JSON.parse(localStorage.getItem(PKEY)) || {}; } catch (e) {}
   try { momPrompts = JSON.parse(localStorage.getItem(MKEY)) || {}; } catch (e) {}
+  try { spellEarly = JSON.parse(localStorage.getItem(EKEY)) || {}; } catch (e) {}
   refreshPrompts();
   if (H.writingPromptsSheet) {
     fetch(H.writingPromptsSheet, { cache: "no-store" }).then(function (r) { return r.text(); }).then(function (text) {
@@ -2774,7 +2819,11 @@ window.HUB = {
   }
   if (H.writingSaveUrl) {
     fetch(H.writingSaveUrl + "?action=settings", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
-      if (j && j.spellingSkip) { spellSkips = j.spellingSkip; if (state.kid && state.kid.teacher && !state.wp && !state.ti) render(); }
+      if (j && (j.spellingSkip || j.testEarly)) {
+        spellSkips = j.spellingSkip || {}; spellEarly = j.testEarly || {};
+        try { localStorage.setItem(EKEY, JSON.stringify(spellEarly)); } catch (e) {}
+        if (!(state.tab === "write" || state.wp || state.ti)) render();
+      }
       if (!j || !j.prompts) return;
       momPrompts = j.prompts;
       try { localStorage.setItem(MKEY, JSON.stringify(momPrompts)); } catch (e) {}
