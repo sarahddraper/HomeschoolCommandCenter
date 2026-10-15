@@ -1249,7 +1249,8 @@ window.HUB = {
   function fmtShort(d) { return DAY_KEYS[d.getDay()] + ", " + MONTHS[d.getMonth()].slice(0, 3) + " " + d.getDate(); }
 
   var today = startOfDay(new Date());
-  var hookyDays = [];
+  var hookyDays = [], xcMoves = [];
+  try { xcMoves = JSON.parse(localStorage.getItem("homeschool-hub-xc-move")) || []; } catch (e) {}
   try { hookyDays = JSON.parse(localStorage.getItem("homeschool-hub-hooky")) || []; } catch (e) {}
   // The first day this device used the hub; older to-dos never count as unfinished.
   if (!store.start) { store.start = ymd(today); save(); }
@@ -1369,10 +1370,19 @@ window.HUB = {
   function aKey(a) { return "a|" + a.id; }
   // What the % counts for a day: that day's subject to-dos plus homework due that same day
   // ---------- Extra credit (Mom's code required) ----------
+  // Mom can move Friday's extra credit to an earlier day that week (dates.xcMove.all = ["2026-10-22"])
+  function xcMovedTo(d) {
+    var mon = monday(d);
+    for (var i = 0; i < 4; i++) { var k = ymd(addDays(mon, i)); if ((xcMoves || []).indexOf(k) >= 0) return k; }
+    return null;
+  }
   function extrasOn(d) {
-    var key = DAY_KEYS[d.getDay()], mine = mySubjects().map(function (s) { return s.id; });
+    var key = DAY_KEYS[d.getDay()], mine = mySubjects().map(function (s) { return s.id; }), moved = xcMovedTo(d);
     return (H.extraCredit || []).map(function (x, i) { return { x: x, key: "xc|" + ymd(d) + "|" + i }; })
-      .filter(function (e) { return e.x.day === key && (!e.x.subject || mine.indexOf(e.x.subject) >= 0); });
+      .filter(function (e) {
+        var day = e.x.day === "Fri" && moved ? DAY_KEYS[parse(moved).getDay()] : e.x.day;
+        return day === key && (!e.x.subject || mine.indexOf(e.x.subject) >= 0);
+      });
   }
   function pointsTotal() {
     var m = doneMap(), total = 0, k, list = H.extraCredit || [];
@@ -2432,6 +2442,8 @@ window.HUB = {
       '<button class="t-big t-big-b" data-action="wp-start"><span class="t-ico" aria-hidden="true">&#9998;&#65039;</span><span><b>What\'s the writing prompt?</b><small>Type the prompt for an upcoming writing day</small></span></button>') + "</section>";
     html += '<section class="t-card">' + (state.hk ? hookyFlow() :
       '<button class="t-big t-big-c" data-action="hk-start"><span class="t-ico" aria-hidden="true">&#127881;</span><span><b>Play Hooky</b><small>Pick days with no school. Everything on those days is cancelled.</small></span></button>') + "</section>";
+    html += '<section class="t-card">' + (state.xm ? xcMoveFlow() :
+      '<button class="t-big t-big-b" data-action="xm-start"><span class="t-ico" aria-hidden="true">&#11088;</span><span><b>Move Shakespeare extra credit</b><small>Do the Friday recite-for-points on an earlier day that week</small></span></button>') + "</section>";
     html += '<section class="t-card">' + skipCard() + "</section>";
     html += '<section class="t-card"><h3>Quick links</h3><div class="t-links">' + (T.links || []).map(function (l) {
       var inner = '<span class="t-ico" aria-hidden="true">' + esc(l.icon || "🔗") + '</span><span><b>' + esc(l.name) + "</b><small>" +
@@ -2569,6 +2581,47 @@ window.HUB = {
         render();
       })
       .catch(function () { delete skipBusy["h" + date]; hk.bad = true; hk.msg = "Couldn't reach Google. Check the internet and try again."; render(); });
+  }
+  // This week and next: Mon-Thu chips; one pick per week moves Friday's extra credit there
+  function xcMoveFlow() {
+    var xm = state.xm, html = '<div class="t-head"><h3>Move Shakespeare extra credit</h3><button class="t-text" data-action="xm-cancel">Done</button></div>' +
+      '<p class="t-hint">Pick the day for the recite-for-points. Tap it again to put it back on Friday.</p>';
+    [0, 7].forEach(function (off) {
+      var mon = addDays(monday(today), off), fri = addDays(mon, 4);
+      if (ymd(fri) < ymd(today)) return;
+      var moved = xcMovedTo(mon);
+      html += '<p class="t-step">Week of ' + (mon.getMonth() + 1) + "/" + mon.getDate() + (moved ? "" : " &middot; Friday") + '</p><div class="t-choices">';
+      for (var i = 0; i < 4; i++) {
+        var d = addDays(mon, i), k = ymd(d);
+        if (k < ymd(today)) continue;
+        html += '<button class="t-chip" data-action="xcmove" data-id="' + k + '" aria-pressed="' + (moved === k) + '"' + (skipBusy["x" + k] ? " disabled" : "") + ">" +
+          DAY_NAMES[d.getDay()].slice(0, 3) + " " + (d.getMonth() + 1) + "/" + d.getDate() + (k === ymd(today) ? " (today)" : "") + "</button>";
+      }
+      html += "</div>";
+    });
+    return html + '<p class="t-msg' + (xm.bad ? " bad" : "") + '" aria-live="polite">' + esc(xm.msg || "") + "</p>";
+  }
+  function xcSave(date, on) {
+    return fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "toggleDate", key: "xcMove", who: "all", date: date, on: on }) })
+      .then(function (r) { return r.text(); })
+      .then(function (t) { var j = null; try { j = JSON.parse(t); } catch (e) {} if (!j || !j.ok || !j.dates) throw "save"; applyDates(j.dates); });
+  }
+  function toggleXcMove(date) {
+    if (!H.writingSaveUrl) return;
+    var xm = state.xm, old = xcMovedTo(parse(date)), on = old !== date;
+    skipBusy["x" + date] = true; xm.msg = "Saving..."; xm.bad = false; render();
+    var step = old && old !== date ? xcSave(old, false) : Promise.resolve();
+    step.then(function () { return xcSave(date, on); })
+      .then(function () {
+        delete skipBusy["x" + date];
+        xm.msg = on ? "Shakespeare extra credit moves to " + fmtLong(parse(date)) + ". Friday won't have it that week." : "Shakespeare extra credit is back on Friday.";
+        render();
+      })
+      .catch(function (err) {
+        delete skipBusy["x" + date]; xm.bad = true;
+        xm.msg = err === "save" ? "Couldn't save. Your Google script may need the latest code." : "Couldn't reach Google. Check the internet and try again.";
+        render();
+      });
   }
   function turnInFlow() {
     var ti = state.ti, T = H.teacher || {}, subs = T.turnInSubjects || ["Math", "Science", "History", "Writing", "Art", "Books"];
@@ -2738,6 +2791,12 @@ window.HUB = {
       state.hk = {}; render();
     } else if (a === "hk-cancel") {
       state.hk = null; render();
+    } else if (a === "xm-start") {
+      state.xm = {}; render();
+    } else if (a === "xm-cancel") {
+      state.xm = null; render();
+    } else if (a === "xcmove") {
+      toggleXcMove(el.dataset.id);
     } else if (a === "hooky") {
       toggleHooky(el.dataset.id);
     } else if (a === "early") {
@@ -2852,6 +2911,8 @@ window.HUB = {
   function applyDates(dates) {
     hookyDays = (dates.hooky && dates.hooky.all) || [];
     try { localStorage.setItem("homeschool-hub-hooky", JSON.stringify(hookyDays)); } catch (e) {}
+    xcMoves = (dates.xcMove && dates.xcMove.all) || [];
+    try { localStorage.setItem("homeschool-hub-xc-move", JSON.stringify(xcMoves)); } catch (e) {}
   }
   var EKEY = "homeschool-hub-test-early", spellSkips = {}, spellEarly = {}, sheetPrompts = {}, momPrompts = {}, PKEY = "homeschool-hub-prompts", MKEY = "homeschool-hub-mom-prompts";
   function refreshPrompts() { applyPrompts(sheetPrompts); applyPrompts(momPrompts); if (!(state.tab === "write" || state.ti || state.wp)) render(); }
