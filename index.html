@@ -1237,7 +1237,7 @@ window.HUB = {
   var store = { kid: null, done: {} };
   try {
     var raw = JSON.parse(localStorage.getItem(KEY));
-    if (raw && typeof raw === "object") store = { kid: raw.kid || null, done: raw.done || {}, start: raw.start || "" };
+    if (raw && typeof raw === "object") store = { kid: raw.kid || null, done: raw.done || {}, start: raw.start || "", xcSynced: !!raw.xcSynced };
   } catch (e) {}
   function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
 
@@ -1410,8 +1410,50 @@ window.HUB = {
       pop.remove(); toggle(key);
       var y = window.scrollY; render(); window.scrollTo(0, y);
       if (adding) { try { confettiBurst(); } catch (er) {} }
+      xcSync(key, adding);
     };
   }
+  // Extra credit points are kept by Mom's Google script too, so every device shows the same total
+  // (dates["xc0"]["kid1"] = ["2026-10-16"] means kid1 earned extra credit #0 that day)
+  function xcSync(key, on) {
+    if (!H.writingSaveUrl || !state.kid) return;
+    var p = key.split("|"), kidId = state.kid.id;
+    fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "toggleDate", key: "xc" + p[2], who: kidId, date: p[1], on: on }) })
+      .then(function (r) { return r.text(); })
+      .then(function (t) { var j = null; try { j = JSON.parse(t); } catch (e) {} if (!j || !j.ok || !j.dates) throw 0; applyDates(j.dates); })
+      .catch(function () {
+        var m = store.done[kidId] || {};
+        if (on) delete m[key]; else m[key] = Date.now();
+        save(); render();
+        alert("Couldn't save the points to Google. Check the internet and try again.");
+      });
+  }
+  function applyPoints(dates) {
+    var first = !store.xcSynced, ups = [];
+    kids.forEach(function (k) {
+      var m = store.done[k.id] || (store.done[k.id] = {}), server = {};
+      (H.extraCredit || []).forEach(function (x, i) {
+        ((dates["xc" + i] || {})[k.id] || []).forEach(function (d) { server["xc|" + d + "|" + i] = 1; });
+      });
+      Object.keys(m).forEach(function (key) {
+        if (key.indexOf("xc|") !== 0 || server[key]) return;
+        if (first) ups.push({ kid: k.id, key: key }); else delete m[key];
+      });
+      Object.keys(server).forEach(function (key) { if (!m[key]) m[key] = Date.now(); });
+    });
+    // The first time, send up points this device already had from before syncing existed
+    // (one at a time so the script doesn't drop any)
+    if (!first || xcSyncing) return;
+    xcSyncing = true;
+    ups.reduce(function (chain, u) {
+      var p = u.key.split("|");
+      return chain.then(function () {
+        return fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "toggleDate", key: "xc" + p[2], who: u.kid, date: p[1], on: true }) })
+          .then(function (r) { return r.json(); }).then(function (j) { if (!j || !j.ok) throw 0; });
+      });
+    }, Promise.resolve()).then(function () { store.xcSynced = true; save(); }).catch(function () {}).then(function () { xcSyncing = false; });
+  }
+  var xcSyncing = false;
   function goalsOn(d) {
     var due = isHooky(d) ? [] : myAssignments().filter(function (a) { return a.due === ymd(d); }).map(function (a) { return { key: aKey(a) }; });
     return itemsOn(d).concat(due);
@@ -2916,6 +2958,7 @@ window.HUB = {
     try { localStorage.setItem("homeschool-hub-hooky", JSON.stringify(hookyDays)); } catch (e) {}
     xcMoves = (dates.xcMove && dates.xcMove.all) || [];
     try { localStorage.setItem("homeschool-hub-xc-move", JSON.stringify(xcMoves)); } catch (e) {}
+    applyPoints(dates);
   }
   var EKEY = "homeschool-hub-test-early", spellSkips = {}, spellEarly = {}, sheetPrompts = {}, momPrompts = {}, PKEY = "homeschool-hub-prompts", MKEY = "homeschool-hub-mom-prompts";
   function refreshPrompts() { applyPrompts(sheetPrompts); applyPrompts(momPrompts); if (!(state.tab === "write" || state.ti || state.wp)) render(); }
