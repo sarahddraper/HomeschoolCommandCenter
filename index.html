@@ -1237,7 +1237,7 @@ window.HUB = {
   var store = { kid: null, done: {} };
   try {
     var raw = JSON.parse(localStorage.getItem(KEY));
-    if (raw && typeof raw === "object") store = { kid: raw.kid || null, done: raw.done || {}, start: raw.start || "", xcSynced: !!raw.xcSynced };
+    if (raw && typeof raw === "object") store = { kid: raw.kid || null, done: raw.done || {}, start: raw.start || "", synced: raw.synced || {}, pending: raw.pending || [] };
   } catch (e) {}
   function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
 
@@ -1357,10 +1357,50 @@ window.HUB = {
     return store.done[id] || (store.done[id] = {});
   }
   function isDone(key) { return !!doneMap()[key]; }
-  function toggle(key) {
-    var m = doneMap();
-    if (m[key]) delete m[key]; else m[key] = Date.now();
-    save();
+  function toggle(key) { setDone(key, !doneMap()[key]); }
+  // Check marks are kept by Mom's Google script too, so every device shows the same ones.
+  // Changes wait in store.pending until her script has them (so nothing is lost offline).
+  var checkSync = false, flushing = false;
+  function setDone(key, on, kidId) {
+    kidId = kidId || (state.kid ? state.kid.id : "_");
+    var m = store.done[kidId] || (store.done[kidId] = {});
+    if (on) m[key] = m[key] || Date.now(); else delete m[key];
+    store.pending = (store.pending || []).filter(function (p) { return !(p.kid === kidId && p.key === key); }).concat([{ kid: kidId, key: key, on: !!on }]);
+    save(); flushChecks();
+  }
+  function postJson(body) {
+    return fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { if (!j || !j.ok || !j.done) throw 0; return j; });
+  }
+  function flushChecks() {
+    if (!checkSync || flushing || !(store.pending || []).length) return;
+    flushing = true;
+    var p = store.pending[0];
+    postJson({ action: "check", kid: p.kid, key: p.key, on: p.on }).then(function (j) {
+      store.pending = store.pending.filter(function (q) { return !(q.kid === p.kid && q.key === p.key && q.on === p.on); });
+      flushing = false; serverDone(p.kid, j.done); flushChecks();
+    }).catch(function () { flushing = false; });
+  }
+  // Her script's check marks for a kid, plus any changes this device hasn't sent yet
+  function serverDone(kidId, done) {
+    var m = Object.assign({}, done || {});
+    (store.pending || []).forEach(function (p) { if (p.kid === kidId) { if (p.on) m[p.key] = m[p.key] || Date.now(); else delete m[p.key]; } });
+    var before = JSON.stringify(store.done[kidId] || {});
+    store.done[kidId] = m; save();
+    if (JSON.stringify(m) !== before && !(state.tab === "write" || state.wp || state.ti || document.querySelector(".code-pop"))) { var y = window.scrollY; render(); window.scrollTo(0, y); }
+  }
+  function applyChecks(all) {
+    checkSync = true;
+    store.synced = store.synced || {};
+    kids.forEach(function (k) {
+      if (store.synced[k.id]) { serverDone(k.id, all[k.id]); return; }
+      // The first time on this device, add its older check marks to Mom's script
+      postJson({ action: "check", kid: k.id, merge: store.done[k.id] || {} }).then(function (j) {
+        store.synced[k.id] = true; serverDone(k.id, j.done);
+      }).catch(function () {});
+    });
+    flushChecks();
   }
   function myAssignments() {
     // On a test-early week, Friday spelling homework is due Thursday instead (same check mark)
@@ -1410,50 +1450,8 @@ window.HUB = {
       pop.remove(); toggle(key);
       var y = window.scrollY; render(); window.scrollTo(0, y);
       if (adding) { try { confettiBurst(); } catch (er) {} }
-      xcSync(key, adding);
     };
   }
-  // Extra credit points are kept by Mom's Google script too, so every device shows the same total
-  // (dates["xc0"]["kid1"] = ["2026-10-16"] means kid1 earned extra credit #0 that day)
-  function xcSync(key, on) {
-    if (!H.writingSaveUrl || !state.kid) return;
-    var p = key.split("|"), kidId = state.kid.id;
-    fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "toggleDate", key: "xc" + p[2], who: kidId, date: p[1], on: on }) })
-      .then(function (r) { return r.text(); })
-      .then(function (t) { var j = null; try { j = JSON.parse(t); } catch (e) {} if (!j || !j.ok || !j.dates) throw 0; applyDates(j.dates); })
-      .catch(function () {
-        var m = store.done[kidId] || {};
-        if (on) delete m[key]; else m[key] = Date.now();
-        save(); render();
-        alert("Couldn't save the points to Google. Check the internet and try again.");
-      });
-  }
-  function applyPoints(dates) {
-    var first = !store.xcSynced, ups = [];
-    kids.forEach(function (k) {
-      var m = store.done[k.id] || (store.done[k.id] = {}), server = {};
-      (H.extraCredit || []).forEach(function (x, i) {
-        ((dates["xc" + i] || {})[k.id] || []).forEach(function (d) { server["xc|" + d + "|" + i] = 1; });
-      });
-      Object.keys(m).forEach(function (key) {
-        if (key.indexOf("xc|") !== 0 || server[key]) return;
-        if (first) ups.push({ kid: k.id, key: key }); else delete m[key];
-      });
-      Object.keys(server).forEach(function (key) { if (!m[key]) m[key] = Date.now(); });
-    });
-    // The first time, send up points this device already had from before syncing existed
-    // (one at a time so the script doesn't drop any)
-    if (!first || xcSyncing) return;
-    xcSyncing = true;
-    ups.reduce(function (chain, u) {
-      var p = u.key.split("|");
-      return chain.then(function () {
-        return fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "toggleDate", key: "xc" + p[2], who: u.kid, date: p[1], on: true }) })
-          .then(function (r) { return r.json(); }).then(function (j) { if (!j || !j.ok) throw 0; });
-      });
-    }, Promise.resolve()).then(function () { store.xcSynced = true; save(); }).catch(function () {}).then(function () { xcSyncing = false; });
-  }
-  var xcSyncing = false;
   function goalsOn(d) {
     var due = isHooky(d) ? [] : myAssignments().filter(function (a) { return a.due === ymd(d); }).map(function (a) { return { key: aKey(a) }; });
     return itemsOn(d).concat(due);
@@ -2769,7 +2767,7 @@ window.HUB = {
     saveDraft(p);
     var rec = writeStore()[state.write.key], payload = { title: writeTitle(state.write.date), kid: kidName(), date: state.write.date, prompt: state.write.prompt, text: paperText(p) };
     function done(msg) {
-      rec.sent = Date.now(); doneMap()[state.write.key] = Date.now(); save();
+      rec.sent = Date.now(); save(); setDone(state.write.key, true);
       btn.disabled = false; btn.textContent = "Turn it in again"; note.textContent = msg;
     }
     if (!H.writingSaveUrl) { done("Saved on this computer. (Mom hasn't connected Google Drive yet.)"); return; }
@@ -2958,7 +2956,6 @@ window.HUB = {
     try { localStorage.setItem("homeschool-hub-hooky", JSON.stringify(hookyDays)); } catch (e) {}
     xcMoves = (dates.xcMove && dates.xcMove.all) || [];
     try { localStorage.setItem("homeschool-hub-xc-move", JSON.stringify(xcMoves)); } catch (e) {}
-    applyPoints(dates);
   }
   var EKEY = "homeschool-hub-test-early", spellSkips = {}, spellEarly = {}, sheetPrompts = {}, momPrompts = {}, PKEY = "homeschool-hub-prompts", MKEY = "homeschool-hub-mom-prompts";
   function refreshPrompts() { applyPrompts(sheetPrompts); applyPrompts(momPrompts); if (!(state.tab === "write" || state.ti || state.wp)) render(); }
@@ -2975,7 +2972,7 @@ window.HUB = {
       refreshPrompts();
     }).catch(function () {});
   }
-  if (H.writingSaveUrl) {
+  function loadSettings() {
     fetch(H.writingSaveUrl + "?action=settings", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
       if (j && (j.spellingSkip || j.testEarly)) {
         spellSkips = j.spellingSkip || {}; spellEarly = j.testEarly || {};
@@ -2983,11 +2980,17 @@ window.HUB = {
         if (!(state.tab === "write" || state.wp || state.ti)) render();
       }
       if (j && j.dates) { applyDates(j.dates); if (!(state.tab === "write" || state.wp || state.ti)) render(); }
+      if (j && j.done) applyChecks(j.done);
       if (!j || !j.prompts) return;
       momPrompts = j.prompts;
       try { localStorage.setItem(MKEY, JSON.stringify(momPrompts)); } catch (e) {}
       refreshPrompts();
     }).catch(function () {});
+  }
+  if (H.writingSaveUrl) {
+    loadSettings();
+    // Coming back to the page picks up check marks made on another device
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") loadSettings(); });
   }
 })();
 </script>
