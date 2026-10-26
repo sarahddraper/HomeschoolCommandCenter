@@ -1105,7 +1105,8 @@ window.HUB = {
         "2026-10-13": ["I know a bank", "where the wild thyme blows,"],
         "2026-10-19": ["Where oxlips", "and the nodding violet grows,"],
         // Thursday: last week's and this week's lines together
-        "2026-10-22": ["I know a bank", "where the wild thyme blows,", "Where oxlips", "and the nodding violet grows,"]
+        "2026-10-22": ["I know a bank", "where the wild thyme blows,", "Where oxlips", "and the nodding violet grows,"],
+        "2026-10-26": ["Where oxlips", "and the nodding violet grows,"]
       },
       links: []
     },
@@ -1149,6 +1150,11 @@ window.HUB = {
 
   // Assignments that repeat every week. "day" is the day it's due.
   // Extra credit: shows on its day, doesn't count toward the % done, and needs Mom's code to check off.
+  // Extra credit Mom forgot to check off. Each one is checked off once for that kid on every device.
+  grantChecks: [
+    { id: "xc-2026-10-23-kid1", kid: "kid1", key: "xc|2026-10-23|0" },
+    { id: "xc-2026-10-23-kid2", kid: "kid2", key: "xc|2026-10-23|0" }
+  ],
   extraCredit: [
     { subject: "shakespeare", day: "Fri", text: "Recite your Shakespeare passage out loud for Mom", points: 10 }
   ],
@@ -1244,7 +1250,7 @@ window.HUB = {
   var store = { kid: null, done: {} };
   try {
     var raw = JSON.parse(localStorage.getItem(KEY));
-    if (raw && typeof raw === "object") store = { kid: raw.kid || null, done: raw.done || {}, start: raw.start || "", synced: raw.synced || {}, pending: raw.pending || [] };
+    if (raw && typeof raw === "object") store = { kid: raw.kid || null, done: raw.done || {}, start: raw.start || "", synced: raw.synced || {}, pending: raw.pending || [], granted: raw.granted || {} };
   } catch (e) {}
   function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
 
@@ -1397,14 +1403,23 @@ window.HUB = {
     store.done[kidId] = m; save();
     if (JSON.stringify(m) !== before && !(state.tab === "write" || state.wp || state.ti || document.querySelector(".code-pop"))) { var y = window.scrollY; render(); window.scrollTo(0, y); }
   }
+  // Check marks Mom asked to add after the fact (data.js grantChecks), added once
+  function grantChecks(kidId, done) {
+    store.granted = store.granted || {};
+    (H.grantChecks || []).forEach(function (g) {
+      if (g.kid !== kidId || store.granted[g.id]) return;
+      store.granted[g.id] = true; save();
+      if (!(done || {})[g.key]) setDone(g.key, true, kidId);
+    });
+  }
   function applyChecks(all) {
     checkSync = true;
     store.synced = store.synced || {};
     kids.forEach(function (k) {
-      if (store.synced[k.id]) { serverDone(k.id, all[k.id]); return; }
+      if (store.synced[k.id]) { serverDone(k.id, all[k.id]); grantChecks(k.id, all[k.id]); return; }
       // The first time on this device, add its older check marks to Mom's script
       postJson({ action: "check", kid: k.id, merge: store.done[k.id] || {} }).then(function (j) {
-        store.synced[k.id] = true; serverDone(k.id, j.done);
+        store.synced[k.id] = true; serverDone(k.id, j.done); grantChecks(k.id, j.done);
       }).catch(function () {});
     });
     flushChecks();
