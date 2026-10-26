@@ -938,6 +938,9 @@ body[data-look="grid"] .void-row b { font-family: var(--display); }
 @keyframes vglitch0 { 0%, 94%, 98%, 100% { transform: none; filter: none; } 94.5% { transform: skewX(-12deg) translateX(-4px); filter: hue-rotate(-60deg) brightness(1.4); } 95.5% { transform: skewX(10deg) translateX(5px); } 96.5% { transform: translateY(-3px); filter: brightness(1.8); } 97.5% { transform: none; filter: hue-rotate(40deg); } }
 @media (prefers-reduced-motion: reduce) { .glitchy .f1, .glitchy .f2, .glitchy .frac, .frac i { animation: none !important; } }
 .confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 60; pointer-events: none; }
+/* Until the page has drawn itself, show only a small "Loading..." instead of the plain page */
+body:not([data-ready]) > * { visibility: hidden; }
+body:not([data-ready])::before { content: "Loading..."; position: fixed; inset: 0; display: grid; place-items: center; font: 600 1.2rem system-ui, sans-serif; color: #8A94A6; }
 </style>
 </head>
 <body data-look="default">
@@ -961,7 +964,7 @@ body[data-look="grid"] .void-row b { font-family: var(--display); }
 
   <main id="view" aria-live="polite"></main>
 
-  <footer>Check marks are saved on this computer or tablet.</footer>
+  <footer>Check marks show up on every computer and tablet.</footer>
 </div>
 
 <div class="picker" id="picker" hidden>
@@ -2199,6 +2202,7 @@ window.HUB = {
   function render() {
     var look = lookName(), T = L();
     document.body.setAttribute("data-look", look);
+    document.body.setAttribute("data-ready", "");
     setSky(look === "galaxy");
     document.getElementById("school-name").textContent = H.schoolName || "Homeschool Command Center";
     document.getElementById("date-line").textContent = fmtLong(today);
