@@ -2690,9 +2690,11 @@ window.HUB = {
     }
     return html;
   }
+  var hwReady = false; // true once Mom's script answers with homework (older versions would make a writing doc instead)
   function hwPost(body, okMsg) {
     var hw = state.hw;
     if (!H.writingSaveUrl) { hw.bad = true; hw.msg = "Google Drive isn't connected yet."; render(); return; }
+    if (!hwReady) { hw.bad = true; hw.msg = "Your Google script needs the latest code (or refresh this page after deploying it)."; render(); return; }
     hw.saving = true; hw.bad = false; hw.msg = "Saving..."; render();
     fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) })
       .then(function (r) { return r.text(); })
@@ -3111,7 +3113,7 @@ window.HUB = {
       }
       if (j && j.dates) { applyDates(j.dates); if (!(state.tab === "write" || state.wp || state.ti || state.hw)) render(); }
       if (j && j.done) applyChecks(j.done);
-      if (j && j.homework) { applyHomework(j.homework); if (!(state.tab === "write" || state.wp || state.ti || state.hw)) render(); }
+      if (j && j.homework) { hwReady = true; applyHomework(j.homework); if (!(state.tab === "write" || state.wp || state.ti || state.hw)) render(); }
       if (!j || !j.prompts) return;
       momPrompts = j.prompts;
       try { localStorage.setItem(MKEY, JSON.stringify(momPrompts)); } catch (e) {}
