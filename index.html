@@ -651,14 +651,16 @@ body[data-look="grid"] .tab.wave .ti svg { animation: glitchsvg .16s steps(1, en
 @media (prefers-reduced-motion: reduce) { .tab.wave { animation: none !important; } }
 body[data-look="realm"] .hero-panel .quest .hills { display: none; }
 /* Homework: big bold due date on the right */
-.assn .due-big { margin-left: auto; flex: none; display: grid; justify-items: end; line-height: 1.05; text-align: right; font-weight: 800; font-size: 1.25rem; white-space: nowrap; padding: 6px 4px; color: var(--ink); }
-.assn .due-big small { font-size: .78rem; font-weight: inherit; letter-spacing: .12em; text-transform: uppercase; color: inherit; }
+.assn .due-big { margin-left: auto; flex: none; display: grid; justify-items: end; line-height: 1.05; text-align: right; font-weight: 800; font-size: 2rem; white-space: nowrap; padding: 8px 6px; color: var(--ink); }
+.assn .due-big em { font-style: normal; font-size: .6em; }
+.assn .due-big.is-today { color: #FF8A3D; }
+.assn .due-big small { font-size: .9rem; font-weight: inherit; letter-spacing: .12em; text-transform: uppercase; color: inherit; }
 .assn .due-big.is-late { color: #FF5A4A; }
 body[data-look="realm"] .assn .due-big { font-family: "Cinzel", Georgia, serif; font-weight: 900; color: #FFB27A; }
 body[data-look="realm"] .assn .due-big.is-late { color: #FF5A4A; }
 body[data-look="grid"] .assn .due-big { font-family: var(--display); color: var(--sun); text-shadow: 0 0 8px color-mix(in srgb, var(--sun) 60%, transparent); }
 body[data-look="grid"] .assn .due-big.is-late { color: #FF4A5E; text-shadow: 0 0 8px rgba(255, 60, 80, .6); }
-@media (max-width: 600px) { .assn .due-big { font-size: 1rem; } }
+@media (max-width: 600px) { .assn .due-big { font-size: 1.5rem; } .assn .due-big small { font-size: .75rem; } }
 body[data-look="realm"] .pin-label { font-family: "Cinzel", Georgia, serif; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; font-size: 18px; fill: #FFE2C2; stroke: #120A05; stroke-width: 5px; }
 /* Aurora's "Worm hole" words floating over the maelstrom */
 .wh-link { cursor: pointer; }
@@ -773,6 +775,12 @@ body[data-look="calm"] .kid[aria-pressed="true"] { background: #7FA088; border-c
 .t-hint { margin: -2px 0 10px; color: #6F7B76; font-size: .95rem; }
 .t-name { color: #5D6B65; font-size: .95rem; margin: 10px 0 14px; }
 .t-name b { color: #2E3A36; }
+.t-dates { display: flex; flex-wrap: wrap; gap: 14px; }
+.t-dates label { flex: 1 1 200px; }
+.t-dates .t-step { display: block; }
+.t-hw-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.t-hw-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; background: #FAF9F6; border: 1px solid #ECE9E2; }
+.t-hw-list small { display: block; color: #6F7B76; }
 .t-msg { min-height: 1.3em; margin: 10px 0 0; font-weight: 600; color: #3F7A55; }
 .t-msg.bad { color: #B3261E; }
 /* Writing page: big kid lined paper */
@@ -1286,6 +1294,17 @@ window.HUB = {
       assignments.push(Object.assign({}, w, { due: due, id: id }));
     }
   });
+  // Homework Mom adds on her page (kept by her Google script): { id, title, subject, kids, start, due }
+  var baseAssignments = assignments.slice(), momHomework = [];
+  try { momHomework = JSON.parse(localStorage.getItem("homeschool-hub-homework")) || []; } catch (e) {}
+  function applyHomework(list) {
+    momHomework = list || [];
+    try { localStorage.setItem("homeschool-hub-homework", JSON.stringify(momHomework)); } catch (e) {}
+    assignments.length = 0;
+    baseAssignments.forEach(function (a) { assignments.push(a); });
+    momHomework.forEach(function (h) { assignments.push(Object.assign({}, h, { id: "mom|" + h.id, mom: true })); });
+  }
+  applyHomework(momHomework);
   var state = {
     tab: "today",
     viewDate: today,
@@ -1401,7 +1420,7 @@ window.HUB = {
     (store.pending || []).forEach(function (p) { if (p.kid === kidId) { if (p.on) m[p.key] = m[p.key] || Date.now(); else delete m[p.key]; } });
     var before = JSON.stringify(store.done[kidId] || {});
     store.done[kidId] = m; save();
-    if (JSON.stringify(m) !== before && !(state.tab === "write" || state.wp || state.ti || document.querySelector(".code-pop"))) { var y = window.scrollY; render(); window.scrollTo(0, y); }
+    if (JSON.stringify(m) !== before && !(state.tab === "write" || state.wp || state.ti || state.hw || document.querySelector(".code-pop"))) { var y = window.scrollY; render(); window.scrollTo(0, y); }
   }
   // Check marks Mom asked to add after the fact (data.js grantChecks), added once
   function grantChecks(kidId, done) {
@@ -1496,13 +1515,20 @@ window.HUB = {
     return '<button class="check" role="checkbox" aria-checked="' + d + '" data-action="toggle" data-key="' + esc(key) + '">' +
       '<span class="box" aria-hidden="true"></span><span class="txt' + (plain ? " plain" : "") + '">' + inner + "</span></button>";
   }
+  // Big, clear due date: "DUE / Wed / Oct 28", or "DUE / TODAY"
+  function dueBig(a, lateTag) {
+    var d = parse(a.due), isT = a.due === ymd(today);
+    return '<span class="due-big' + (lateTag ? " is-late" : isT ? " is-today" : "") + '" aria-label="Due ' + esc(isT ? "today" : fmtLong(d)) + '"><small>Due</small>' +
+      (isT ? "TODAY" : esc(DAY_NAMES[d.getDay()].slice(0, 3)) + "<em>" + esc(MONTHS[d.getMonth()].slice(0, 3) + " " + d.getDate()) + "</em>") + "</span>";
+  }
   function assnRow(a, showDate, lateTag) {
     var s = subjectById[a.subject] || { name: a.subject, color: "blue" };
     var meta = [esc(s.name)];
     if (a.notes) meta.push(esc(a.notes));
     return '<div class="assn tint ' + color(s) + '">' +
-      checkBtn(aKey(a), "<strong>" + esc(a.title) + (lateTag ? ' <span class="tag late">Late</span>' : "") + "</strong><small>" + meta.join(" · ") + "</small>") +
-      (showDate ? '<span class="due-big' + (lateTag ? " is-late" : "") + '"><small>Due</small>' + esc(fmtShort(parse(a.due))) + "</span>" : "") +
+      checkBtn(aKey(a), "<strong>" + esc(a.title) + (lateTag ? ' <span class="tag late">Late</span>' : "") + "</strong><small>" + meta.join(" · ") + "</small>" +
+        (a.where ? '<small class="assn-where"><span aria-hidden="true">&#128205;</span> ' + esc(a.where) + "</small>" : "")) +
+      (showDate ? dueBig(a, lateTag) : "") +
       (a.link ? '<a class="go" href="' + esc(a.link) + '" target="_blank" rel="noopener">Open</a>' : "") +
       "</div>";
   }
@@ -1742,7 +1768,13 @@ window.HUB = {
     var dueHere = isHooky(d) ? [] : myAssignments().filter(function (a) { return a.due === ymd(d); });
     if (dueHere.length) {
       html += '<section class="panel"><h2>' + (isToday ? esc(T.dueToday) : "Due on " + DAY_NAMES[d.getDay()]) + '</h2><div class="list">' +
-        dueHere.map(function (a) { return assnRow(a, false); }).join("") + "</div></section>";
+        dueHere.map(function (a) { return assnRow(a, true); }).join("") + "</div></section>";
+    }
+
+    var comingUp = isHooky(d) ? [] : myAssignments().filter(function (a) { return a.start && a.start <= ymd(d) && a.due > ymd(d); });
+    if (comingUp.length) {
+      html += '<section class="panel"><h2>Homework</h2><div class="list">' +
+        comingUp.map(function (a) { return assnRow(a, true); }).join("") + "</div></section>";
     }
 
     var extras = isHooky(d) ? [] : extrasOn(d), xcHtml = "";
@@ -2505,6 +2537,8 @@ window.HUB = {
       '<button class="t-big" data-action="ti-start"><span class="t-ico" aria-hidden="true">&#128247;</span><span><b>Turn In</b><small>Take a picture of the kids\' work and save it to Google Drive</small></span></button>') + "</section>";
     html += '<section class="t-card">' + (state.wp ? promptFlow() :
       '<button class="t-big t-big-b" data-action="wp-start"><span class="t-ico" aria-hidden="true">&#9998;&#65039;</span><span><b>What\'s the writing prompt?</b><small>Type the prompt for an upcoming writing day</small></span></button>') + "</section>";
+    html += '<section class="t-card">' + (state.hw ? homeworkFlow() :
+      '<button class="t-big" data-action="hw-start"><span class="t-ico" aria-hidden="true">&#128221;</span><span><b>Homework</b><small>Give the kids homework: pick when it shows up and when it\'s due</small></span></button>') + "</section>";
     html += '<section class="t-card">' + (state.hk ? hookyFlow() :
       '<button class="t-big t-big-c" data-action="hk-start"><span class="t-ico" aria-hidden="true">&#127881;</span><span><b>Play Hooky</b><small>Pick days with no school. Everything on those days is cancelled.</small></span></button>') + "</section>";
     html += '<section class="t-card">' + (state.xm ? xcMoveFlow() :
@@ -2619,6 +2653,70 @@ window.HUB = {
         render();
       })
       .catch(function () { delete skipBusy[kid + date]; skipMsg = { text: "Couldn't reach Google. Check the internet and try again.", bad: true }; render(); });
+  }
+  var HW_SUBJECTS = ["Math", "Bible", "History", "Science", "Language Arts", "Writing"];
+  function hwRead() {
+    var hw = state.hw; if (!hw) return;
+    var t = document.getElementById("hw-title"), st = document.getElementById("hw-start"), du = document.getElementById("hw-due"), no = document.getElementById("hw-where");
+    if (t) hw.title = t.value; if (st) hw.start = st.value; if (du) hw.due = du.value; if (no) hw.where = no.value;
+  }
+  function hwKidsLabel(k) { return !k || !k.length || k.indexOf("all") >= 0 ? "Both" : k.map(function (id) { var x = kids.filter(function (kk) { return kk.id === id; })[0]; return x ? x.name : id; }).join(", "); }
+  function homeworkFlow() {
+    var hw = state.hw;
+    if (!hw.start) hw.start = ymd(today);
+    if (!hw.due) hw.due = ymd(addDays(today, 1));
+    if (!hw.who) hw.who = "all";
+    var html = '<div class="t-head"><h3>Homework</h3><button class="t-text" data-action="hw-cancel">Done</button></div>' +
+      '<p class="t-step">1. Who</p><div class="t-choices">' + kids.map(function (k) { return { id: k.id, name: k.name }; }).concat([{ id: "all", name: "Both" }]).map(function (k) {
+        return '<button class="t-chip" data-action="hw-who" data-id="' + esc(k.id) + '" aria-pressed="' + (hw.who === k.id) + '">' + esc(k.name) + "</button>";
+      }).join("") + "</div>" +
+      '<p class="t-step">2. Subject</p><div class="t-choices">' + HW_SUBJECTS.map(function (sb) {
+        return '<button class="t-chip" data-action="hw-sub" data-id="' + esc(sb) + '" aria-pressed="' + (hw.subject === sb) + '">' + esc(sb) + "</button>";
+      }).join("") + "</div>" +
+      '<p class="t-step">3. What\'s the homework? (short description)</p><input class="t-area" id="hw-title" maxlength="120" placeholder="e.g. Math worksheet page 12" value="' + esc(hw.title || "") + '">' +
+      '<p class="t-step">4. Where to find it</p><input class="t-area" id="hw-where" maxlength="200" placeholder="e.g. In the blue folder on the school shelf" value="' + esc(hw.where || "") + '">' +
+      '<div class="t-dates"><label><span class="t-step">5. Shows up on</span><input class="t-area" type="date" id="hw-start" value="' + esc(hw.start) + '"></label>' +
+      '<label><span class="t-step">6. Due on</span><input class="t-area" type="date" id="hw-due" value="' + esc(hw.due) + '"></label></div>' +
+      '<div class="t-row" style="margin-top:14px"><button class="t-btn" data-action="hw-save"' + (hw.saving ? " disabled" : "") + ">" + (hw.saving ? "Saving..." : "Add homework") + "</button></div>" +
+      '<p class="t-msg' + (hw.bad ? " bad" : "") + '" aria-live="polite">' + esc(hw.msg || "") + "</p>";
+    var upcoming = momHomework.filter(function (h) { return h.due >= ymd(today); }).sort(function (a, b) { return a.due < b.due ? -1 : 1; });
+    if (upcoming.length) {
+      html += '<p class="t-step">Homework you\'ve added</p><ul class="t-hw-list">' + upcoming.map(function (h) {
+        var who = h.kids || ["all"], doneBy = kids.filter(function (k) { return (who.indexOf("all") >= 0 || who.indexOf(k.id) >= 0) && (store.done[k.id] || {})["a|mom|" + h.id]; }).map(function (k) { return k.name; });
+        return '<li><span><b>' + esc(h.title) + "</b><small>" + esc(hwKidsLabel(h.kids)) + " &middot; " + esc(h.subject || "") + (h.where ? " &middot; " + esc(h.where) : "") + " &middot; shows " + esc(fmtShort(parse(h.start))) + ", due " + esc(fmtShort(parse(h.due))) +
+          (doneBy.length ? " &middot; &#10003; " + esc(doneBy.join(", ")) : "") + "</small></span>" +
+          '<button class="t-text" data-action="hw-del" data-id="' + esc(h.id) + '"' + (hw.saving ? " disabled" : "") + ">Remove</button></li>";
+      }).join("") + "</ul>";
+    }
+    return html;
+  }
+  function hwPost(body, okMsg) {
+    var hw = state.hw;
+    if (!H.writingSaveUrl) { hw.bad = true; hw.msg = "Google Drive isn't connected yet."; render(); return; }
+    hw.saving = true; hw.bad = false; hw.msg = "Saving..."; render();
+    fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        var j = null; try { j = JSON.parse(t); } catch (e) {}
+        hw.saving = false;
+        if (!j || !j.ok || !j.homework) { hw.bad = true; hw.msg = "Couldn't save. Your Google script needs the latest code."; render(); return; }
+        applyHomework(j.homework); hw.msg = okMsg; render();
+      })
+      .catch(function () { hw.saving = false; hw.bad = true; hw.msg = "Couldn't reach Google. Check the internet and try again."; render(); });
+  }
+  function hwSave() {
+    hwRead();
+    var hw = state.hw, title = (hw.title || "").trim();
+    if (!title) { hw.bad = true; hw.msg = "Type what the homework is."; render(); return; }
+    if (!hw.subject) { hw.bad = true; hw.msg = "Pick a subject."; render(); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(hw.start || "") || !/^\d{4}-\d{2}-\d{2}$/.test(hw.due || "")) { hw.bad = true; hw.msg = "Pick both dates."; render(); return; }
+    if (hw.due < hw.start) { hw.bad = true; hw.msg = "The due date is before the day it shows up."; render(); return; }
+    var sub = subjects.filter(function (s) { return s.name.toLowerCase() === hw.subject.toLowerCase(); })[0];
+    var item = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title: title, subject: sub ? sub.id : hw.subject, kids: [hw.who || "all"], start: hw.start, due: hw.due };
+    if ((hw.where || "").trim()) item.where = hw.where.trim();
+    var msg = "Added for " + hwKidsLabel(item.kids) + ". It shows up " + fmtLong(parse(item.start)) + " and is due " + fmtLong(parse(item.due)) + ".";
+    hw.title = ""; hw.where = "";
+    hwPost({ action: "homework", op: "add", item: item }, msg);
   }
   function hookyFlow() {
     var days = [];
@@ -2856,6 +2954,16 @@ window.HUB = {
       state.hk = {}; render();
     } else if (a === "hk-cancel") {
       state.hk = null; render();
+    } else if (a === "hw-start") {
+      state.hw = {}; render();
+    } else if (a === "hw-cancel") {
+      state.hw = null; render();
+    } else if (a === "hw-who" || a === "hw-sub") {
+      hwRead(); state.hw[a === "hw-who" ? "who" : "subject"] = el.dataset.id; state.hw.bad = false; state.hw.msg = ""; render();
+    } else if (a === "hw-save") {
+      if (!state.hw.saving) hwSave();
+    } else if (a === "hw-del") {
+      hwRead(); hwPost({ action: "homework", op: "delete", id: el.dataset.id }, "Removed.");
     } else if (a === "xm-start") {
       state.xm = {}; render();
     } else if (a === "xm-cancel") {
@@ -2980,7 +3088,7 @@ window.HUB = {
     try { localStorage.setItem("homeschool-hub-xc-move", JSON.stringify(xcMoves)); } catch (e) {}
   }
   var EKEY = "homeschool-hub-test-early", spellSkips = {}, spellEarly = {}, sheetPrompts = {}, momPrompts = {}, PKEY = "homeschool-hub-prompts", MKEY = "homeschool-hub-mom-prompts";
-  function refreshPrompts() { applyPrompts(sheetPrompts); applyPrompts(momPrompts); if (!(state.tab === "write" || state.ti || state.wp)) render(); }
+  function refreshPrompts() { applyPrompts(sheetPrompts); applyPrompts(momPrompts); if (!(state.tab === "write" || state.ti || state.wp || state.hw)) render(); }
   try { sheetPrompts = JSON.parse(localStorage.getItem(PKEY)) || {}; } catch (e) {}
   try { momPrompts = JSON.parse(localStorage.getItem(MKEY)) || {}; } catch (e) {}
   try { spellEarly = JSON.parse(localStorage.getItem(EKEY)) || {}; } catch (e) {}
@@ -2999,10 +3107,11 @@ window.HUB = {
       if (j && (j.spellingSkip || j.testEarly)) {
         spellSkips = j.spellingSkip || {}; spellEarly = j.testEarly || {};
         try { localStorage.setItem(EKEY, JSON.stringify(spellEarly)); } catch (e) {}
-        if (!(state.tab === "write" || state.wp || state.ti)) render();
+        if (!(state.tab === "write" || state.wp || state.ti || state.hw)) render();
       }
-      if (j && j.dates) { applyDates(j.dates); if (!(state.tab === "write" || state.wp || state.ti)) render(); }
+      if (j && j.dates) { applyDates(j.dates); if (!(state.tab === "write" || state.wp || state.ti || state.hw)) render(); }
       if (j && j.done) applyChecks(j.done);
+      if (j && j.homework) { applyHomework(j.homework); if (!(state.tab === "write" || state.wp || state.ti || state.hw)) render(); }
       if (!j || !j.prompts) return;
       momPrompts = j.prompts;
       try { localStorage.setItem(MKEY, JSON.stringify(momPrompts)); } catch (e) {}
