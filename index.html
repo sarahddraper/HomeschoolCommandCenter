@@ -780,6 +780,8 @@ body[data-look="calm"] .kid[aria-pressed="true"] { background: #7FA088; border-c
 .t-dates .t-step { display: block; }
 .t-hw-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .t-hw-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; background: #FAF9F6; border: 1px solid #ECE9E2; }
+.assn strong { white-space: pre-line; }
+.t-hw-list b { white-space: pre-line; }
 .t-hw-list small { display: block; color: #6F7B76; }
 .t-msg { min-height: 1.3em; margin: 10px 0 0; font-weight: 600; color: #3F7A55; }
 .t-msg.bad { color: #B3261E; }
@@ -2673,7 +2675,7 @@ window.HUB = {
       '<p class="t-step">2. Subject</p><div class="t-choices">' + HW_SUBJECTS.map(function (sb) {
         return '<button class="t-chip" data-action="hw-sub" data-id="' + esc(sb) + '" aria-pressed="' + (hw.subject === sb) + '">' + esc(sb) + "</button>";
       }).join("") + "</div>" +
-      '<p class="t-step">3. What\'s the homework? (short description)</p><input class="t-area" id="hw-title" maxlength="120" placeholder="e.g. Math worksheet page 12" value="' + esc(hw.title || "") + '">' +
+      '<p class="t-step">3. What\'s the homework? (description)</p><textarea class="t-area" id="hw-title" rows="4" maxlength="1000" placeholder="e.g. Math worksheet page 12. Do the odd problems and show your work.">' + esc(hw.title || "") + "</textarea>" +
       '<p class="t-step">4. Where to find it</p><input class="t-area" id="hw-where" maxlength="200" placeholder="e.g. In the blue folder on the school shelf" value="' + esc(hw.where || "") + '">' +
       '<div class="t-dates"><label><span class="t-step">5. Shows up on</span><input class="t-area" type="date" id="hw-start" value="' + esc(hw.start) + '"></label>' +
       '<label><span class="t-step">6. Due on</span><input class="t-area" type="date" id="hw-due" value="' + esc(hw.due) + '"></label></div>' +
