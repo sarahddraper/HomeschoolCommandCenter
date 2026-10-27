@@ -2350,7 +2350,7 @@ window.HUB = {
           return '<span class="rw" data-n="' + (n++) + '">' + esc(w) + "</span>";
         }).join(" ") + "</p>";
       }).join("") : '<p class="muted">No passage yet.</p>') + "</div>" +
-      (lines.length ? '<p class="recite-round" aria-live="polite"></p><div class="recite-tools"><button class="btn btn-sun" data-action="recite-play">&#9654; Play slowly</button></div>' : "") +
+      (lines.length ? '<p class="recite-round" aria-live="polite"></p><div class="recite-tools"><button class="btn btn-sun" data-action="recite-play">&#9654; Play</button></div>' : "") +
       "</section>";
   }
   var reciteRun = 0;
@@ -2390,7 +2390,12 @@ window.HUB = {
       var ls = plan[ri].lines.slice();
       (function nextLine() {
         if (run !== reciteRun) return;
-        if (!ls.length) { setTimeout(function () { round(ri + 1); }, 700); return; }
+        if (!ls.length) {
+          // Quiet time for the kids to say it back: about half a second per word, plus a moment to start
+          var n = plan[ri].lines.reduce(function (t, l) { return t + l.querySelectorAll(".rw").length; }, 0);
+          label.textContent = "Your turn! Say it out loud.";
+          setTimeout(function () { round(ri + 1); }, 1500 + n * 550); return;
+        }
         sayLine(ls.shift(), function () { setTimeout(nextLine, 200); });
       })();
     }
