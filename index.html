@@ -1646,9 +1646,9 @@ window.HUB = {
       setTimeout(function () { speechSynthesis.speak(u); }, delay);
     } catch (e) {}
   }
-  // Aurora's finish: her chosen YouTube clip (0:18 to 0:23) plays in a small player card, then the card closes.
+  // Aurora's finish: her chosen YouTube clip (0:29 to 0:32) plays in a small player card, then the card closes.
   // YouTube needs the internet; if it can't load, the old war horn plays instead.
-  var FINISH_CLIP = { id: "Hc3WzSin8KQ", start: 18, end: 23 };
+  var FINISH_CLIP = { id: "DIY3TZpOcDU", start: 29, end: 32 };
   function playBossCall() {
     var old = document.querySelector(".clip-card"); if (old) old.remove();
     if (!navigator.onLine) {
