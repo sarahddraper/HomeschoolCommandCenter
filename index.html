@@ -1278,7 +1278,8 @@ window.HUB = {
   function fmtShort(d) { return DAY_KEYS[d.getDay()] + ", " + MONTHS[d.getMonth()].slice(0, 3) + " " + d.getDate(); }
 
   var today = startOfDay(new Date());
-  var hookyDays = [], xcMoves = [];
+  var hookyDays = [], xcMoves = [], writingExtra = [];
+  try { writingExtra = JSON.parse(localStorage.getItem("homeschool-hub-writing-extra")) || []; } catch (e) {}
   try { xcMoves = JSON.parse(localStorage.getItem("homeschool-hub-xc-move")) || []; } catch (e) {}
   try { hookyDays = JSON.parse(localStorage.getItem("homeschool-hub-hooky")) || []; } catch (e) {}
   // The first day this device used the hub; older to-dos never count as unfinished.
@@ -1353,7 +1354,8 @@ window.HUB = {
     var sp = special(d);
     if (sp) return sp.map(function (e) { return subjectById[e.subject]; }).filter(function (s) { return s && (all || !s.mapOnly); });
     var key = DAY_KEYS[d.getDay()];
-    return mySubjects().filter(function (s) { return s.days.indexOf(key) >= 0 && (all || !s.mapOnly) && !(s.id === "spelling" && key === "Fri" && testEarly(kidName(), addDays(d, -1))); });
+    // Mom can add writing on extra days (dates.writingExtra.all)
+    return mySubjects().filter(function (s) { return (s.days.indexOf(key) >= 0 || (s.id === "writing" && writingExtra.indexOf(ymd(d)) >= 0)) && (all || !s.mapOnly) && !(s.id === "spelling" && key === "Fri" && testEarly(kidName(), addDays(d, -1))); });
   }
   function todosFor(s, d) {
     var se = specialEntry(s, d);
@@ -2567,7 +2569,29 @@ window.HUB = {
     var w = subjectById.writing, out = [];
     if (!w) return out;
     for (var i = 0; i < 21; i++) { var d = addDays(today, i); if (w.days.indexOf(DAY_KEYS[d.getDay()]) >= 0) out.push(ymd(d)); }
-    return out;
+    writingExtra.forEach(function (k) { if (k >= ymd(today) && out.indexOf(k) < 0) out.push(k); });
+    return out.sort();
+  }
+  // Add or remove an extra writing day (both kids). Kept by Mom's Google script with the other date switches.
+  function wpExtra(date, on) {
+    var wp = state.wp;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date || "")) { wp.bad = true; wp.msg = "Pick a date first."; render(); return; }
+    var dd = parse(date);
+    if (on && (subjectById.writing || { days: [] }).days.indexOf(DAY_KEYS[dd.getDay()]) >= 0) { wp.date = date; wp.bad = false; wp.msg = fmtLong(dd) + " is already a writing day."; render(); return; }
+    if (!H.writingSaveUrl) { wp.bad = true; wp.msg = "Google Drive isn't connected yet."; render(); return; }
+    wp.saving = true; wp.bad = false; wp.msg = "Saving..."; render();
+    fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "toggleDate", key: "writingExtra", who: "all", date: date, on: on }) })
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        var j = null; try { j = JSON.parse(t); } catch (e) {}
+        wp.saving = false;
+        if (!j || !j.ok || !j.dates) { wp.bad = true; wp.msg = "Couldn't save. Your Google script may need the latest code."; render(); return; }
+        applyDates(j.dates);
+        if (on) { wp.date = date; wp.draft = null; } else { var ds = writingDays(); wp.date = ds[0] || ymd(today); wp.draft = null; }
+        wp.msg = on ? "Writing added on " + fmtLong(dd) + " for both kids. Type its prompt below." : "Writing removed from " + fmtLong(dd) + ".";
+        render();
+      })
+      .catch(function () { wp.saving = false; wp.bad = true; wp.msg = "Couldn't reach Google. Check the internet and try again."; render(); });
   }
   function promptFlow() {
     var wp = state.wp, w = subjectById.writing || { prompts: {} }, days = writingDays();
@@ -2577,8 +2601,11 @@ window.HUB = {
       '<p class="t-step">1. Day</p><div class="t-choices">' + days.map(function (k) {
         var d = parse(k);
         return '<button class="t-chip" data-action="wp-day" data-id="' + k + '" aria-pressed="' + (wp.date === k) + '">' + (k === ymd(today) ? "Today" : esc(DAY_NAMES[d.getDay()].slice(0, 3)) + " " + (d.getMonth() + 1) + "/" + d.getDate()) +
-          (w.prompts[k] ? ' <span aria-label="has a prompt">&#10003;</span>' : "") + "</button>";
+          (w.prompts[k] ? ' <span aria-label="has a prompt">&#10003;</span>' : "") + (writingExtra.indexOf(k) >= 0 ? " &middot; added" : "") + "</button>";
       }).join("") + "</div>" +
+      '<div class="t-row" style="margin-top:10px;align-items:center;flex-wrap:wrap;gap:10px"><input class="t-area" type="date" id="wp-extra" min="' + ymd(today) + '" style="width:auto">' +
+      '<button class="t-btn ghost" data-action="wp-extra-add"' + (wp.saving ? " disabled" : "") + ">+ Add a writing day</button>" +
+      (writingExtra.indexOf(wp.date) >= 0 ? '<button class="t-btn ghost" data-action="wp-extra-del"' + (wp.saving ? " disabled" : "") + ">Remove " + esc(fmtShort(parse(wp.date))) + "</button>" : "") + "</div>" +
       '<p class="t-step">2. Prompt for both kids</p><textarea class="t-area" id="wp-text" rows="4" placeholder="Type the writing prompt...">' + esc(cur) + "</textarea>" +
       '<div class="t-row" style="margin-top:12px"><button class="t-btn" data-action="wp-save"' + (wp.saving ? " disabled" : "") + ">" + (wp.saving ? "Saving..." : "Save prompt") + "</button>" +
       (w.prompts[wp.date] ? '<button class="t-btn ghost" data-action="wp-clear"' + (wp.saving ? " disabled" : "") + ">Clear</button>" : "") + "</div>" +
@@ -2995,6 +3022,10 @@ window.HUB = {
       state.wp = null; render();
     } else if (a === "wp-day") {
       if (!state.wp.saving) { state.wp.date = el.dataset.id; state.wp.draft = null; state.wp.msg = ""; render(); }
+    } else if (a === "wp-extra-add") {
+      var we = document.getElementById("wp-extra"); if (!state.wp.saving) wpExtra(we && we.value, true);
+    } else if (a === "wp-extra-del") {
+      if (!state.wp.saving) wpExtra(state.wp.date, false);
     } else if (a === "wp-save") {
       var wt = document.getElementById("wp-text"); if (wt && !state.wp.saving) wpSave(wt.value.trim());
     } else if (a === "wp-clear") {
@@ -3099,6 +3130,8 @@ window.HUB = {
     try { localStorage.setItem("homeschool-hub-hooky", JSON.stringify(hookyDays)); } catch (e) {}
     xcMoves = (dates.xcMove && dates.xcMove.all) || [];
     try { localStorage.setItem("homeschool-hub-xc-move", JSON.stringify(xcMoves)); } catch (e) {}
+    writingExtra = (dates.writingExtra && dates.writingExtra.all) || [];
+    try { localStorage.setItem("homeschool-hub-writing-extra", JSON.stringify(writingExtra)); } catch (e) {}
   }
   var EKEY = "homeschool-hub-test-early", spellSkips = {}, spellEarly = {}, sheetPrompts = {}, momPrompts = {}, PKEY = "homeschool-hub-prompts", MKEY = "homeschool-hub-mom-prompts";
   function refreshPrompts() { applyPrompts(sheetPrompts); applyPrompts(momPrompts); if (!(state.tab === "write" || state.ti || state.wp || state.hw)) render(); }
