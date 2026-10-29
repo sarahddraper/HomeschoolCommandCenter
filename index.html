@@ -104,7 +104,7 @@ h1, h2, h3 { font-family: var(--display); font-weight: 600; line-height: 1.15; m
 .kid[aria-pressed="true"] { background: var(--sun); border-color: var(--sun); color: var(--on-sun); }
 
 /* Tabs (default look) */
-.tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .tab { border: 0; background: var(--surface); border-radius: 14px; padding: 12px 8px; font-family: var(--display); font-weight: 600; font-size: 1.05rem; box-shadow: inset 0 -3px 0 var(--line); display: grid; justify-items: center; gap: 2px; }
 .tab .ti:empty { display: none; }
 .tab[aria-selected="true"] { background: var(--ink); color: var(--bg); box-shadow: none; }
@@ -274,7 +274,7 @@ body[data-look="realm"] .map-title { fill: var(--gold-hi); }
 .cloud.slow { animation-duration: 55s; }
 @keyframes drift { from { transform: translateX(-24px); } to { transform: translateX(24px); } }
 /* Aurora's nav: cloth banners hanging from a gold rod across the top */
-body[data-look="realm"] .tabs { position: relative; gap: 14px; padding: 12px 10px 0; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+body[data-look="realm"] .tabs { position: relative; gap: 14px; padding: 12px 10px 0; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; }
 body[data-look="realm"] .tabs::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 10px; border-radius: 5px;
   background: linear-gradient(180deg, #FFE7A3, #C9A24A 45%, #7A5418); box-shadow: 0 2px 4px rgba(0, 0, 0, .7); }
 body[data-look="realm"] .tabs .tab {
@@ -306,7 +306,7 @@ body[data-look="galaxy"] .hero h2 { font-size: clamp(1.25rem, 4vw, 1.9rem); }
 body[data-look="galaxy"] .eyebrow { color: var(--sun); }
 body[data-look="galaxy"] .wrap { padding-bottom: 130px; }
 body[data-look="galaxy"] .tabs {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; grid-template-columns: repeat(3, minmax(0, 1fr));
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; grid-template-columns: repeat(4, minmax(0, 1fr));
   padding: 10px max(12px, calc(50vw - 500px)) calc(10px + env(safe-area-inset-bottom, 0px));
   background: rgba(4, 8, 22, .92); border-top: 1px solid color-mix(in srgb, var(--sun) 40%, transparent); backdrop-filter: blur(10px); }
 body[data-look="galaxy"] .tab { background: none; box-shadow: none; font-size: .78rem; letter-spacing: .05em; text-transform: uppercase; padding: 4px 2px; color: var(--muted); }
@@ -341,12 +341,12 @@ body[data-look="grid"] .meter, body[data-look="grid"] .bar .col, body[data-look=
 body[data-look="grid"] .meter > i, body[data-look="grid"] .bar .col > i { box-shadow: 0 0 12px var(--good); }
 body[data-look="grid"] .ring { background: conic-gradient(var(--sun) calc(var(--p) * 1%), var(--line) 0); box-shadow: 0 0 20px color-mix(in srgb, var(--sun) 35%, transparent); }
 body[data-look="grid"] .tabs {
-  --i: 0; position: relative; gap: 8px; padding: 8px 8px 12px; grid-template-columns: repeat(3, minmax(0, 1fr));
+  --i: 0; position: relative; gap: 8px; padding: 8px 8px 12px; grid-template-columns: repeat(4, minmax(0, 1fr));
   background: rgba(3, 14, 22, .88); border: 1px solid color-mix(in srgb, var(--sun) 45%, transparent);
   box-shadow: 0 0 22px color-mix(in srgb, var(--sun) 18%, transparent); }
 body[data-look="grid"] .tabs::after {
   content: ""; position: absolute; bottom: 3px; height: 4px; border-radius: 2px;
-  width: calc((100% - 32px) / 3); left: calc(8px + var(--i) * ((100% - 32px) / 3 + 8px));
+  width: calc((100% - 40px) / 4); left: calc(8px + var(--i) * ((100% - 40px) / 4 + 8px));
   background: linear-gradient(90deg, transparent, var(--sun) 35%, #FFFFFF 50%, var(--sun) 65%, transparent);
   box-shadow: 0 0 14px var(--sun); transition: left .55s cubic-bezier(.5, 0, .2, 1); }
 body[data-look="grid"] .tab { background: none; box-shadow: none; border-radius: 2px; color: var(--muted); font-weight: 600;
@@ -938,6 +938,16 @@ body[data-look="grid"] .void-row b { font-family: var(--display); }
 @keyframes vglitch0 { 0%, 94%, 98%, 100% { transform: none; filter: none; } 94.5% { transform: skewX(-12deg) translateX(-4px); filter: hue-rotate(-60deg) brightness(1.4); } 95.5% { transform: skewX(10deg) translateX(5px); } 96.5% { transform: translateY(-3px); filter: brightness(1.8); } 97.5% { transform: none; filter: hue-rotate(40deg); } }
 @media (prefers-reduced-motion: reduce) { .glitchy .f1, .glitchy .f2, .glitchy .frac, .frac i { animation: none !important; } }
 .confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 60; pointer-events: none; }
+/* Samples tab */
+.samples h2 small { font-size: .85rem; font-weight: 600; margin-left: 6px; }
+.sample-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 14px; }
+.sample { display: grid; gap: 6px; text-decoration: none; color: var(--ink); justify-items: center; }
+.sample-img { width: 118px; height: 150px; border-radius: 10px; overflow: hidden; display: grid; place-items: center; background: color-mix(in srgb, var(--ink) 8%, transparent); border: 2px solid var(--line); transition: transform .15s; }
+.sample:hover .sample-img, .sample:focus-visible .sample-img { transform: translateY(-3px); border-color: var(--sun); }
+.sample-img img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; background: #FFF; }
+.sample-img:empty::after { content: ""; width: 26px; height: 26px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--sun); animation: spin 1s linear infinite; }
+.sample-doc { font-size: 2.4rem; }
+.sample-cap { font-size: .85rem; font-weight: 700; color: var(--muted); }
 /* Until the page has drawn itself, show only a small "Loading..." instead of the plain page */
 body:not([data-ready]) > * { visibility: hidden; }
 body:not([data-ready])::before { content: "Loading..."; position: fixed; inset: 0; display: grid; place-items: center; font: 600 1.2rem system-ui, sans-serif; color: #8A94A6; }
@@ -959,6 +969,7 @@ body:not([data-ready])::before { content: "Loading..."; position: fixed; inset: 
     <button class="tab" role="tab" data-tab="today" id="tab-today"><span class="ti"></span><span class="tl">Today</span></button>
     <button class="tab" role="tab" data-tab="progress" id="tab-progress"><span class="ti"></span><span class="tl">How am I doing?</span></button>
     <button class="tab" role="tab" data-tab="subjects" id="tab-subjects"><span class="ti"></span><span class="tl">All subjects</span></button>
+    <button class="tab" role="tab" data-tab="samples" id="tab-samples"><span class="ti"></span><span class="tl">Samples</span></button>
   </nav>
   </div>
 
@@ -1206,37 +1217,38 @@ window.HUB = {
   var DAY_KEYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   var DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  var TAB_IDS = ["today", "week", "progress", "subjects"];
+  var TAB_IDS = ["today", "week", "progress", "subjects", "samples"];
 
   // Words and navigation for each look. A child's look comes from "theme" in data.js.
   var LOOKS = {
     "default": {
-      tabs: ["Today", "Due this week", "How am I doing?", "All subjects"], icons: ["", "", "", ""],
+      tabs: ["Today", "Due this week", "How am I doing?", "All subjects", "Samples"], icons: ["", "", "", "", ""],
       hello: "Hi, {n}!", eyebrow: "Today", otherBtn: "Other days' subjects", thing: "thing",
       late: "Still not finished from before", catchUp: "Catch up", win: "Everything on the list is done. Great work!",
       dueToday: "Due today", ranks: null
     },
     realm: {
-      tabs: ["Today's Quests", "Quest Log", "Hero's Journey", "World Map"], icons: ["⚔︎", "✒︎", "✦", "✣"],
+      tabs: ["Today's Quests", "Quest Log", "Hero's Journey", "World Map", "Samples"], icons: ["⚔︎", "✒︎", "✦", "✣", "❖"],
       hello: "Welcome back, {n}!", eyebrow: "Today's quests", otherBtn: "Travel to another day", thing: "quest",
       late: "Unfinished quests", catchUp: "Side quests to finish", win: "Every quest on the list is complete. Legendary!",
       dueToday: "Quests due today", ranks: ["Apprentice", "Adventurer", "Champion", "Hero", "Legend"],
       mapTitle: "", mapHint: ""
     },
     galaxy: {
-      tabs: ["Today's Mission", "Flight Plan", "Ship Status", "Galaxy Map"], icons: ["◉", "☄︎", "✶", "◍"],
+      tabs: ["Today's Mission", "Flight Plan", "Ship Status", "Galaxy Map", "Samples"], icons: ["◉", "☄︎", "✶", "◍", "▣"],
       hello: "Welcome aboard, {n}!", eyebrow: "Today's mission", otherBtn: "Jump to another day", thing: "mission",
       late: "Overdue missions", catchUp: "Missions to finish", win: "All missions on the list complete. Stellar work!",
       dueToday: "Missions due today", ranks: ["Cadet", "Pilot", "Navigator", "Commander", "Admiral"],
       mapTitle: "{n}'s Galaxy", mapHint: "Tap a planet to land on it. Planets with a beacon are on today's mission."
     },
     grid: {
-      tabs: ["Today's Run", "Upload Queue", "System Status", "The Grid"], icons: ["", "", "", ""],
+      tabs: ["Today's Run", "Upload Queue", "System Status", "The Grid", "Samples"], icons: ["", "", "", "", ""],
       svgIcons: [
         '<svg viewBox="0 0 32 32" aria-hidden="true"><g class="spin" style="fill:none;stroke:currentColor"><circle cx="16" cy="16" r="13" style="stroke-width:2.5;stroke-dasharray:16 4"/><circle cx="16" cy="16" r="8" style="stroke-width:1.5"/></g><circle cx="16" cy="16" r="3" style="fill:currentColor"/></svg>',
         '<svg viewBox="0 0 32 32" aria-hidden="true" style="fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:square"><path d="M5 8h16M5 16h22M5 24h12"/><path d="M25 6v4" style="stroke-width:2"/></svg>',
         '<svg viewBox="0 0 32 32" aria-hidden="true" style="fill:none;stroke:currentColor;stroke-linecap:round"><path d="M4 24a12 12 0 0 1 24 0" style="stroke-width:3;stroke-dasharray:5 3"/><path d="M16 24l7 -9" style="stroke-width:2.5"/><circle cx="16" cy="24" r="2.5" style="fill:currentColor"/></svg>',
-        '<svg viewBox="0 0 32 32" aria-hidden="true" style="fill:none;stroke:currentColor;stroke-width:2"><path d="M4 4h24v24H4zM12 4v24M20 4v24M4 12h24M4 20h24"/><rect x="12" y="12" width="8" height="8" style="fill:currentColor;opacity:.6"/></svg>'
+        '<svg viewBox="0 0 32 32" aria-hidden="true" style="fill:none;stroke:currentColor;stroke-width:2"><path d="M4 4h24v24H4zM12 4v24M20 4v24M4 12h24M4 20h24"/><rect x="12" y="12" width="8" height="8" style="fill:currentColor;opacity:.6"/></svg>',
+        '<svg viewBox="0 0 32 32" aria-hidden="true" style="fill:none;stroke:currentColor;stroke-width:2"><rect x="4" y="6" width="11" height="9"/><rect x="17" y="6" width="11" height="9"/><rect x="4" y="18" width="11" height="9"/><rect x="17" y="18" width="11" height="9" style="fill:currentColor;opacity:.6"/></svg>'
       ],
       hello: "Welcome to the grid, {n}!", eyebrow: "Today's run", otherBtn: "Load another day", thing: "task",
       late: "Overdue tasks", catchUp: "Tasks to finish", win: "All tasks complete. System at 100%!",
@@ -1979,6 +1991,73 @@ window.HUB = {
       "</section>";
   }
 
+  // ---------- Samples: this kid's work saved in Mom's Google Drive ----------
+  // Her script lists files with the kid's name in "Student Work 2026-2027/<Subject>" and "Homeschool Writing"
+  var SAMPLE_ORDER = ["Math", "Writing", "Science", "History", "Bible", "Language Arts", "Art", "Books"];
+  var samples = {}, thumbs = {}, thumbBusy = {};
+  try { samples = JSON.parse(localStorage.getItem("homeschool-hub-samples")) || {}; } catch (e) {}
+  function loadSamples() {
+    var kid = kidName(), sm = samples[kid] = samples[kid] || {};
+    if (!H.writingSaveUrl || !kid || sm.loading) return;
+    sm.loading = true;
+    fetch(H.writingSaveUrl + "?action=samples&kid=" + encodeURIComponent(kid), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
+      sm.loading = false;
+      if (!j || !j.ok || !j.samples) { sm.err = "old"; } else { sm.err = ""; sm.data = j.samples; sm.at = Date.now(); }
+      try { localStorage.setItem("homeschool-hub-samples", JSON.stringify(samples)); } catch (e) {}
+      if (state.tab === "samples") render();
+    }).catch(function () { sm.loading = false; sm.err = "net"; if (state.tab === "samples") render(); });
+  }
+  function viewSamples() {
+    var kid = kidName(), sm = samples[kid] || {}, data = sm.data;
+    if (!sm.loading && (!sm.at || Date.now() - sm.at > 60000)) loadSamples();
+    var html = '<section class="panel"><p class="eyebrow">Samples</p><h2>' + esc(kid ? kid + "'s work" : "Work samples") + '</h2><p class="muted">Tap a picture to open it.</p></section>';
+    if (!data) {
+      return html + '<section class="panel"><p class="muted">' + (sm.err === "old" ? "Mom's Google script needs the latest code to show samples." : sm.err === "net" ? "Couldn't reach Google Drive. Check the internet and try again." : "Loading your work...") + "</p></section>";
+    }
+    var names = SAMPLE_ORDER.slice();
+    Object.keys(data).forEach(function (n) { if (names.indexOf(n) < 0) names.push(n); });
+    names.forEach(function (n) {
+      var files = (data[n] || []).slice().sort(function (a, b) { return b.date - a.date; });
+      html += '<section class="panel samples"><h2>' + esc(n) + ' <small class="muted">' + plural(files.length, "sample") + "</small></h2>" +
+        (files.length ? '<div class="sample-grid">' + files.map(function (f) {
+          var d = new Date(f.date), t = thumbs[f.id];
+          return '<a class="sample" href="' + esc(f.url) + '" target="_blank" rel="noopener" title="' + esc(f.name) + '">' +
+            '<span class="sample-img" data-thumb="' + esc(f.id) + '">' + (t ? '<img alt="" src="' + t + '">' : t === "" ? '<span class="sample-doc" aria-hidden="true">&#128196;</span>' : "") + "</span>" +
+            '<span class="sample-cap">' + esc(MONTHS[d.getMonth()].slice(0, 3) + " " + d.getDate()) + "</span></a>";
+        }).join("") + "</div>" : '<p class="muted">Nothing here yet.</p>') + "</section>";
+    });
+    return html;
+  }
+  // Small pictures come one at a time from Mom's script (a few at once), then stay on this device
+  function loadThumbs() {
+    var want = Array.prototype.slice.call(document.querySelectorAll("[data-thumb]")).map(function (el) { return el.dataset.thumb; })
+      .filter(function (id) { return thumbs[id] == null && !thumbBusy[id]; });
+    want.forEach(function (id) { try { var c = localStorage.getItem("homeschool-hub-thumb-" + id); if (c != null) thumbs[id] = c; } catch (e) {} });
+    want = want.filter(function (id) { return thumbs[id] == null; });
+    document.querySelectorAll("[data-thumb]").forEach(showThumb);
+    var running = 0;
+    (function next() {
+      while (running < 4 && want.length) {
+        var id = want.shift(); running++; thumbBusy[id] = true;
+        (function (id) {
+          fetch(H.writingSaveUrl + "?action=thumb&id=" + encodeURIComponent(id)).then(function (r) { return r.json(); }).then(function (j) {
+            thumbs[id] = j && j.ok && j.img ? j.img : "";
+            try { localStorage.setItem("homeschool-hub-thumb-" + id, thumbs[id]); } catch (e) {}
+          }).catch(function () {}).then(function () {
+            delete thumbBusy[id]; running--;
+            document.querySelectorAll('[data-thumb="' + id + '"]').forEach(showThumb);
+            next();
+          });
+        })(id);
+      }
+    })();
+  }
+  function showThumb(el) {
+    var t = thumbs[el.dataset.thumb];
+    if (t == null || el.dataset.shown) return;
+    el.dataset.shown = "1";
+    el.innerHTML = t ? '<img alt="" src="' + t + '">' : '<span class="sample-doc" aria-hidden="true">&#128196;</span>';
+  }
   function viewSubjects() {
     var look = lookName();
     if (look === "realm" || look === "galaxy" || look === "grid") return viewMap(look);
@@ -2233,7 +2312,8 @@ window.HUB = {
     stopRecite();
     var paperEl = document.getElementById("paper");
     if (state.tab === "write") { if (!paperEl || paperEl.dataset.key !== state.write.key) { view.innerHTML = viewWrite(); afterWriteRender(); } }
-    else view.innerHTML = state.tab === "wormhole" ? viewWormhole() : state.tab === "recite" ? viewRecite() : state.tab === "week" ? viewWeek() : state.tab === "progress" ? viewProgress() : state.tab === "subjects" ? viewSubjects() : viewToday();
+    else view.innerHTML = state.tab === "wormhole" ? viewWormhole() : state.tab === "recite" ? viewRecite() : state.tab === "week" ? viewWeek() : state.tab === "progress" ? viewProgress() : state.tab === "subjects" ? viewSubjects() : state.tab === "samples" ? viewSamples() : viewToday();
+    if (state.tab === "samples") loadThumbs();
     if (state.tab === "wormhole") fillVideoTitles();
     var ms = view.querySelector(".map-scroll");
     if (ms) ms.scrollLeft = (ms.scrollWidth - ms.clientWidth) / 2; // start phones looking at the middle of the map
