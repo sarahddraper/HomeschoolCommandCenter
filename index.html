@@ -2563,7 +2563,7 @@ window.HUB = {
   }
   var reciteRun = 0;
   // Tap-to-play lines (data.js tapLines): how many times she has played each line today, saved on this device
-  function tapKey(r) { return "homeschool-hub-taps-" + (state.kid ? state.kid.id : "_") + "-" + r.id + "-" + r.date; }
+  function tapKey(r) { return "homeschool-hub-taps2-" + (state.kid ? state.kid.id : "_") + "-" + r.id + "-" + r.date; }
   function tapCounts(r) { try { return JSON.parse(localStorage.getItem(tapKey(r))) || {}; } catch (e) { return {}; } }
   function tapCount(r, li) { return +tapCounts(r)[li] || 0; }
   function tapAdd(r, li) { var c = tapCounts(r); c[li] = (+c[li] || 0) + 1; try { localStorage.setItem(tapKey(r), JSON.stringify(c)); } catch (e) {} return c[li]; }
