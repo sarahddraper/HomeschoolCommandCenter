@@ -949,6 +949,7 @@ body[data-look="grid"] .void-row b { font-family: var(--display); }
 .sample-img img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; background: #FFF; }
 .sample-img:empty::after { content: ""; width: 26px; height: 26px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--sun); animation: spin 1s linear infinite; }
 .sample-doc { font-size: 2.4rem; }
+.recite-line.part-start { margin-top: 1.1em; }
 .sample-cap { font-size: .85rem; font-weight: 700; color: var(--muted); }
 /* Until the page has drawn itself, show only a small "Loading..." instead of the plain page */
 body:not([data-ready]) > * { visibility: hidden; }
@@ -1127,6 +1128,7 @@ window.HUB = {
         { text: "Shakespeare memorization", recite: true }
       ],
       // Passage to memorize. Each one starts on its date and stays until a newer one starts.
+      // Review weeks: group the lines in [ ] parts; each part is read together, then a pause.
       // The first line shows in big text.
       passages: {
         "2026-10-13": ["I know a bank", "where the wild thyme blows,"],
@@ -1134,8 +1136,8 @@ window.HUB = {
         // Thursday: last week's and this week's lines together
         "2026-10-22": ["I know a bank", "where the wild thyme blows,", "Where oxlips", "and the nodding violet grows,"],
         "2026-10-26": ["Quite overcanopied", "with luscious woodbine"],
-        // Review week: all three weeks together
-        "2026-11-02": ["I know a bank", "where the wild thyme blows,", "Where oxlips", "and the nodding violet grows,", "Quite overcanopied", "with luscious woodbine"]
+        // Review week: all three weeks together, read two lines at a time with a pause after each part
+        "2026-11-02": [["I know a bank", "where the wild thyme blows,"], ["Where oxlips", "and the nodding violet grows,"], ["Quite overcanopied", "with luscious woodbine"]]
       },
       links: []
     },
@@ -2444,18 +2446,28 @@ window.HUB = {
   // Draft text, saved on this device as she types
   function writeStore() { var id = state.kid ? state.kid.id : "_"; store.writing = store.writing || {}; return store.writing[id] || (store.writing[id] = {}); }
   // Shakespeare: words appear one at a time while a slow voice reads each one.
-  function passageFor(s, date) {
+  // A passage is a list of lines, or (review weeks) a list of parts like [["line", "line"], ["line", "line"]]:
+  // each part is read as one piece, with a say-it-back pause after it.
+  function passageParts(s, date) {
     var best = null, k;
     for (k in s.passages || {}) if (k <= date && (!best || k > best)) best = k;
-    return best ? s.passages[best] : null;
+    var v = best ? s.passages[best] : null;
+    if (!v) return null;
+    return v.map(function (x) { return Array.isArray(x) ? x : [x]; });
+  }
+  function passageFor(s, date) {
+    var parts = passageParts(s, date);
+    return parts ? [].concat.apply([], parts) : null;
   }
   function viewRecite() {
-    var r = state.recite, s = subjectById[r.id], lines = s && passageFor(s, r.date) || [], n = 0;
+    var r = state.recite, s = subjectById[r.id], parts = s && passageParts(s, r.date) || [], n = 0, lines = [], partOf = [];
+    parts.forEach(function (p, pi) { p.forEach(function (l) { lines.push(l); partOf.push(pi); }); });
+    var grouped = parts.some(function (p) { return p.length > 1; });
     return '<section class="panel recite-page">' +
       '<div class="write-top"><button class="btn" data-action="write-back">&larr; Back</button><span class="write-date">' + esc(fmtLong(parse(r.date))) + "</span></div>" +
-      '<div class="prompt-card"><small>Memorize this</small><p>Press play. ' + (function (n) { return n === 1 ? "Each line plays once" : n === 2 ? "Each line plays twice" : "Each line plays " + n + " times"; })((s && s.repeats || {})[DAY_KEYS[parse(r.date).getDay()]] || 4) + ', then the whole thing once. Say each word out loud with me.</p></div>' +
+      '<div class="prompt-card"><small>Memorize this</small><p>Press play. ' + (function (n) { var w = grouped ? "Each part" : "Each line"; return n === 1 ? w + " plays once" : n === 2 ? w + " plays twice" : w + " plays " + n + " times"; })((s && s.repeats || {})[DAY_KEYS[parse(r.date).getDay()]] || 4) + ', then the whole thing once. Say each word out loud with me.</p></div>' +
       '<div class="recite-lines">' + (lines.length ? lines.map(function (line, li) {
-        return '<p class="recite-line' + (li === 0 ? " big" : "") + '">' + line.split(/\s+/).filter(Boolean).map(function (w) {
+        return '<p class="recite-line' + (li === 0 ? " big" : "") + (grouped && li > 0 && partOf[li] !== partOf[li - 1] ? " part-start" : "") + '" data-part="' + partOf[li] + '">' + line.split(/\s+/).filter(Boolean).map(function (w) {
           return '<span class="rw" data-n="' + (n++) + '">' + esc(w) + "</span>";
         }).join(" ") + "</p>";
       }).join("") : '<p class="muted">No passage yet.</p>') + "</div>" +
@@ -2506,7 +2518,11 @@ window.HUB = {
     var run = reciteRun, page = document.querySelector(".recite-page"), label = page.querySelector(".recite-round");
     var lines = Array.prototype.slice.call(page.querySelectorAll(".recite-line")), plan = [];
     var sub = subjectById[state.recite.id] || {}, reps = (sub.repeats || {})[DAY_KEYS[parse(state.recite.date).getDay()]] || 4;
-    lines.forEach(function (l, li) { for (var r = 1; r <= reps; r++) plan.push({ lines: [l], label: "Line " + (li + 1) + (reps > 1 ? ": time " + r + " of " + reps : "") }); });
+    // Lines read together in parts (review weeks), or one at a time
+    var groups = [];
+    lines.forEach(function (l) { var pi = l.dataset.part, g = groups[groups.length - 1]; if (g && g.part === pi) g.lines.push(l); else groups.push({ part: pi, lines: [l] }); });
+    var word = groups.some(function (g) { return g.lines.length > 1; }) ? "Part " : "Line ";
+    groups.forEach(function (g, gi) { for (var r = 1; r <= reps; r++) plan.push({ lines: g.lines, label: word + (gi + 1) + (reps > 1 ? ": time " + r + " of " + reps : "") }); });
     if (lines.length > 1) plan.push({ lines: lines, label: "All together!" });
     btn.textContent = "Listening...";
     var voice = niceVoice();
