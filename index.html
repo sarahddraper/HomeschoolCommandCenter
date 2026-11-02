@@ -1154,13 +1154,19 @@ window.HUB = {
       ],
       // The song, a few lines at a time. Full words: memory-work/books-of-the-bible-lyrics.md
       passages: {
-        "2026-11-02": [
-          "Genesis, God creates the world, humans wreck it.",
-          "Exodus, the exit of the Israelites is epic",
-          "Leviticus and Numbers, God's people get wobbly",
-          "Moses whips 'em into shape in Deuteronomy",
-          "Joshua's pursuit of the promised land is legendary"
-        ]
+        // This week: each line once, the new 5th line twice, every day (no all-together at the end)
+        "2026-11-02": {
+          lines: [
+            "Genesis, God creates the world, humans wreck it.",
+            "Exodus, the exit of the Israelites is epic",
+            "Leviticus and Numbers, God's people get wobbly",
+            "Moses whips 'em into shape in Deuteronomy",
+            "Joshua's pursuit of the promised land is legendary"
+          ],
+          times: [1, 1, 1, 1, 2],
+          together: false,
+          note: "Each line plays once. The new line (the last one) plays twice."
+        }
       },
       links: []
     },
@@ -2477,7 +2483,16 @@ window.HUB = {
     for (k in s.passages || {}) if (k <= date && (!best || k > best)) best = k;
     var v = best ? s.passages[best] : null;
     if (!v) return null;
+    if (!Array.isArray(v)) v = v.lines || [];
     return v.map(function (x) { return Array.isArray(x) ? x : [x]; });
+  }
+  // Extra settings for a passage written as { lines: [...], times: [1, 1, 2], together: false, note: "..." }:
+  // times = how many times each line/part plays (instead of the day's count), together = play the whole thing at the end
+  function passageMeta(s, date) {
+    var best = null, k;
+    for (k in s.passages || {}) if (k <= date && (!best || k > best)) best = k;
+    var v = best ? s.passages[best] : null;
+    return v && !Array.isArray(v) ? v : {};
   }
   function passageFor(s, date) {
     var parts = passageParts(s, date);
@@ -2486,12 +2501,13 @@ window.HUB = {
   function viewRecite() {
     var r = state.recite, s = subjectById[r.id], parts = s && passageParts(s, r.date) || [], n = 0, lines = [], partOf = [];
     parts.forEach(function (p, pi) { p.forEach(function (l) { lines.push(l); partOf.push(pi); }); });
-    var grouped = parts.some(function (p) { return p.length > 1; });
+    var grouped = parts.some(function (p) { return p.length > 1; }), meta = s ? passageMeta(s, r.date) : {};
+    var times = meta.times || [];
     return '<section class="panel recite-page">' +
       '<div class="write-top"><button class="btn" data-action="write-back">&larr; Back</button><span class="write-date">' + esc(fmtLong(parse(r.date))) + "</span></div>" +
-      '<div class="prompt-card"><small>Memorize this</small><p>Press play. ' + (function (n) { var w = grouped ? "Each part" : "Each line"; return n === 1 ? w + " plays once" : n === 2 ? w + " plays twice" : w + " plays " + n + " times"; })((s && s.repeats || {})[DAY_KEYS[parse(r.date).getDay()]] || 4) + ', then the whole thing once. Say each word out loud with me.</p></div>' +
+      '<div class="prompt-card"><small>Memorize this</small><p>Press play. ' + esc(meta.note ? meta.note : (function (n) { var w = grouped ? "Each part" : "Each line"; return (n === 1 ? w + " plays once" : n === 2 ? w + " plays twice" : w + " plays " + n + " times") + ", then the whole thing once."; })((s && s.repeats || {})[DAY_KEYS[parse(r.date).getDay()]] || 4)) + ' Say each word out loud with me.</p></div>' +
       '<div class="recite-lines">' + (lines.length ? lines.map(function (line, li) {
-        return '<p class="recite-line' + (li === 0 ? " big" : "") + (grouped && li > 0 && partOf[li] !== partOf[li - 1] ? " part-start" : "") + '" data-part="' + partOf[li] + '">' + line.split(/\s+/).filter(Boolean).map(function (w) {
+        return '<p class="recite-line' + (li === 0 ? " big" : "") + (grouped && li > 0 && partOf[li] !== partOf[li - 1] ? " part-start" : "") + '" data-part="' + partOf[li] + '"' + (times[partOf[li]] ? ' data-times="' + (+times[partOf[li]]) + '"' : "") + (meta.together === false ? ' data-alone="1"' : "") + ">" + line.split(/\s+/).filter(Boolean).map(function (w) {
           return '<span class="rw" data-n="' + (n++) + '">' + esc(w) + "</span>";
         }).join(" ") + "</p>";
       }).join("") : '<p class="muted">No passage yet.</p>') + "</div>" +
@@ -2546,8 +2562,11 @@ window.HUB = {
     var groups = [];
     lines.forEach(function (l) { var pi = l.dataset.part, g = groups[groups.length - 1]; if (g && g.part === pi) g.lines.push(l); else groups.push({ part: pi, lines: [l] }); });
     var word = groups.some(function (g) { return g.lines.length > 1; }) ? "Part " : "Line ";
-    groups.forEach(function (g, gi) { for (var r = 1; r <= reps; r++) plan.push({ lines: g.lines, label: word + (gi + 1) + (reps > 1 ? ": time " + r + " of " + reps : "") }); });
-    if (lines.length > 1) plan.push({ lines: lines, label: "All together!" });
+    groups.forEach(function (g, gi) {
+      var n = +g.lines[0].dataset.times || reps;
+      for (var r = 1; r <= n; r++) plan.push({ lines: g.lines, label: word + (gi + 1) + (n > 1 ? ": time " + r + " of " + n : "") });
+    });
+    if (lines.length > 1 && !(lines[0] && lines[0].dataset.alone)) plan.push({ lines: lines, label: "All together!" });
     btn.textContent = "Listening...";
     var voice = niceVoice();
     function round(ri) {
@@ -2923,7 +2942,7 @@ window.HUB = {
       '<p class="t-hint">Tap Record, read the line at normal speed, then tap Stop. It saves right away. Record again to replace it.</p>';
     if (!voiceReady) html += '<p class="t-msg bad">Your Google script needs the latest code (or refresh this page after deploying it).</p>';
     var subOf = {};
-    subjects.forEach(function (s) { if (s.passages) Object.keys(s.passages).forEach(function (k) { [].concat.apply([], s.passages[k].map(function (x) { return Array.isArray(x) ? x : [x]; })).forEach(function (l) { subOf[l] = s.name; }); }); });
+    subjects.forEach(function (s) { if (s.passages) Object.keys(s.passages).forEach(function (k) { [].concat.apply([], (Array.isArray(s.passages[k]) ? s.passages[k] : s.passages[k].lines || []).map(function (x) { return Array.isArray(x) ? x : [x]; })).forEach(function (l) { subOf[l] = s.name; }); }); });
     html += '<ul class="t-hw-list">' + lines.map(function (l, i) {
       var k = voiceKey(l), has = voiceList[k] != null, recNow = vr.rec === i, busy = vr.saving === i;
       return (i === 0 || subOf[lines[i - 1]] !== subOf[l] ? '<li class="t-hw-head">' + esc(subOf[l] || "") + "</li>" : "") + '<li><span><b>' + esc(l) + "</b><small>" + (busy ? "Saving..." : recNow ? "&#128308; Recording... tap Stop when you finish" : has ? "&#10003; Your voice" : "Computer voice") + "</small></span>" +
