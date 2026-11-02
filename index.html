@@ -1384,11 +1384,18 @@ window.HUB = {
     // Mom can add writing on extra days (dates.writingExtra.all)
     return mySubjects().filter(function (s) { return (s.days.indexOf(key) >= 0 || (s.id === "writing" && writingExtra.indexOf(ymd(d)) >= 0)) && (all || !s.mapOnly) && !(s.id === "spelling" && key === "Fri" && testEarly(kidName(), addDays(d, -1))); });
   }
+  // A day's prompt is either one prompt for both kids, or (when Mom gives them different ones)
+  // a JSON string like {"kid1":"...","kid2":"..."} so her Google script can keep it as-is.
+  function promptParts(v) {
+    if (v && typeof v === "string" && v.charAt(0) === "{") { try { var o = JSON.parse(v); if (o && typeof o === "object") return o; } catch (e) {} }
+    return v ? { all: v } : {};
+  }
+  function promptFor(v, kidId) { var o = promptParts(v); return o[kidId] || o.all || ""; }
   function todosFor(s, d) {
     var se = specialEntry(s, d);
     if (se && se.text) return [{ text: se.text, link: se.link || "" }];
     if (s.prompts) {
-      var pr = s.prompts[ymd(d)];
+      var pr = promptFor(s.prompts[ymd(d)], state.kid && state.kid.id);
       return [pr ? { text: "Prompt: " + pr, write: true, prompt: pr } : { text: s.noPrompt || "No prompt yet. Write about anything you like!", write: true, prompt: "" }];
     }
     var kv = kidVersion(s, d), t = kv && kv.todo ? kv.todo : s.todo;
@@ -2691,7 +2698,9 @@ window.HUB = {
   function promptFlow() {
     var wp = state.wp, w = subjectById.writing || { prompts: {} }, days = writingDays();
     if (!wp.date) wp.date = days[0] || ymd(today);
-    var cur = wp.draft != null ? wp.draft : (w.prompts[wp.date] || "");
+    if (!wp.who) wp.who = "all";
+    var parts = promptParts(w.prompts[wp.date]);
+    var cur = wp.draft != null ? wp.draft : wp.who === "all" ? (parts.all || "") : (parts[wp.who] || parts.all || "");
     var html = '<div class="t-head"><h3>What\'s the writing prompt?</h3><button class="t-text" data-action="wp-cancel">Done</button></div>' +
       '<p class="t-step">1. Day</p><div class="t-choices">' + days.map(function (k) {
         var d = parse(k);
@@ -2701,14 +2710,28 @@ window.HUB = {
       '<div class="t-row" style="margin-top:10px;align-items:center;flex-wrap:wrap;gap:10px"><input class="t-area" type="date" id="wp-extra" min="' + ymd(today) + '" style="width:auto">' +
       '<button class="t-btn ghost" data-action="wp-extra-add"' + (wp.saving ? " disabled" : "") + ">+ Add a writing day</button>" +
       (writingExtra.indexOf(wp.date) >= 0 ? '<button class="t-btn ghost" data-action="wp-extra-del"' + (wp.saving ? " disabled" : "") + ">Remove " + esc(fmtShort(parse(wp.date))) + "</button>" : "") + "</div>" +
-      '<p class="t-step">2. Prompt for both kids</p><textarea class="t-area" id="wp-text" rows="4" placeholder="Type the writing prompt...">' + esc(cur) + "</textarea>" +
+      '<p class="t-step">2. Who</p><div class="t-choices">' + [{ id: "all", name: "Both" }].concat(kids.map(function (k) { return { id: k.id, name: k.name }; })).map(function (k) {
+        return '<button class="t-chip" data-action="wp-who" data-id="' + esc(k.id) + '" aria-pressed="' + (wp.who === k.id) + '">' + esc(k.name) +
+          (k.id !== "all" && parts[k.id] ? ' <span aria-label="has their own prompt">&#10003;</span>' : "") + "</button>";
+      }).join("") + "</div>" +
+      (wp.who === "all" && (parts.kid1 || parts.kid2 || kids.some(function (k) { return parts[k.id]; })) ? '<p class="t-hint">The kids have different prompts this day. Saving here gives them both the same one.</p>' : "") +
+      '<p class="t-step">3. Prompt for ' + esc(wp.who === "all" ? "both kids" : hwKidsLabel([wp.who])) + '</p><textarea class="t-area" id="wp-text" rows="4" placeholder="Type the writing prompt...">' + esc(cur) + "</textarea>" +
       '<div class="t-row" style="margin-top:12px"><button class="t-btn" data-action="wp-save"' + (wp.saving ? " disabled" : "") + ">" + (wp.saving ? "Saving..." : "Save prompt") + "</button>" +
-      (w.prompts[wp.date] ? '<button class="t-btn ghost" data-action="wp-clear"' + (wp.saving ? " disabled" : "") + ">Clear</button>" : "") + "</div>" +
+      ((wp.who === "all" ? w.prompts[wp.date] : parts[wp.who]) ? '<button class="t-btn ghost" data-action="wp-clear"' + (wp.saving ? " disabled" : "") + ">Clear</button>" : "") + "</div>" +
       '<p class="t-msg' + (wp.bad ? " bad" : "") + '" aria-live="polite">' + esc(wp.msg || "") + "</p>";
     return html;
   }
   function wpSave(text) {
-    var wp = state.wp;
+    var wp = state.wp, w0 = subjectById.writing || { prompts: {} }, who = wp.who || "all", typed = text;
+    if (who !== "all") {
+      // One kid's own prompt: keep the other kid's (or the shared one) as it was
+      var o = promptParts(w0.prompts[wp.date]), base = o.all || "";
+      kids.forEach(function (k) { if (!o[k.id] && base) o[k.id] = base; });
+      delete o.all;
+      if (text) o[who] = text; else delete o[who];
+      var vals = kids.map(function (k) { return o[k.id] || ""; });
+      text = vals.every(function (v) { return v === vals[0]; }) ? vals[0] : JSON.stringify(o);
+    }
     if (!H.writingSaveUrl) { wp.bad = true; wp.msg = "Google Drive isn't connected yet."; render(); return; }
     wp.draft = text; wp.saving = true; wp.bad = false; wp.msg = ""; render();
     fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "prompt", date: wp.date, prompt: text }) })
@@ -2722,7 +2745,7 @@ window.HUB = {
         try { localStorage.setItem(MKEY, JSON.stringify(momPrompts)); } catch (e) {}
         var w = subjectById.writing; if (w) { if (text) w.prompts[wp.date] = text; else delete w.prompts[wp.date]; }
         wp.draft = null;
-        wp.msg = text ? "Saved! The kids will see it on " + fmtLong(parse(wp.date)) + "." : "Cleared.";
+        wp.msg = typed ? "Saved! " + (who === "all" ? "Both kids" : hwKidsLabel([who])) + " will see it on " + fmtLong(parse(wp.date)) + "." : "Cleared.";
         render();
       })
       .catch(function () { wp.saving = false; wp.bad = true; wp.msg = "Couldn't reach Google. Check the internet and try again."; render(); });
@@ -3115,6 +3138,8 @@ window.HUB = {
       state.wp = {}; render();
     } else if (a === "wp-cancel") {
       state.wp = null; render();
+    } else if (a === "wp-who") {
+      if (!state.wp.saving) { state.wp.who = el.dataset.id; state.wp.draft = null; state.wp.msg = ""; render(); }
     } else if (a === "wp-day") {
       if (!state.wp.saving) { state.wp.date = el.dataset.id; state.wp.draft = null; state.wp.msg = ""; render(); }
     } else if (a === "wp-extra-add") {
