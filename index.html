@@ -951,6 +951,22 @@ body[data-look="grid"] .void-row b { font-family: var(--display); }
 .sample-img:empty::after { content: ""; width: 26px; height: 26px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--sun); animation: spin 1s linear infinite; }
 .sample-doc { font-size: 2.4rem; }
 .recite-line.part-start { margin-top: 1.1em; }
+.recite-line[data-action] { cursor: pointer; border-radius: 12px; padding: 4px 10px; margin-left: -10px; transition: background .15s; }
+.recite-line[data-action]:hover, .recite-line.playing { background: rgba(255, 200, 60, .28); }
+.tap-play { font-size: .55em; vertical-align: middle; opacity: .55; }
+.recite-split { display: grid; grid-template-columns: 210px 1fr; gap: 16px; align-items: start; }
+.recite-side { position: sticky; top: 12px; margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
+.recite-side .btn { font-size: 1.15rem; padding: 12px 16px; }
+.recite-side .recite-round { text-align: left; font-size: 1.05rem; margin: 0; }
+.recite-split .recite-line { font-size: 1.45rem; margin-bottom: 8px; }
+.recite-split .recite-line.big { font-size: 1.9rem; }
+@media (max-width: 700px) { .recite-split { grid-template-columns: 1fr; gap: 0; } .recite-side { top: 0; z-index: 2; padding: 8px; border-radius: 10px; background: var(--panel, rgba(20,20,30,.92)); flex-direction: row; align-items: center; } .recite-split .recite-line { font-size: 1.2rem; } .recite-split .recite-line.big { font-size: 1.5rem; } }
+.recite-line[data-done] { background: rgba(60, 180, 90, .22); }
+.recite-line[data-done] .rw { color: #1E6B35; }
+.recite-split .recite-line:not(.playing) .rw:not(.on) { opacity: .4; }
+.recite-page.tap-busy .recite-line[data-action]:not(.playing) { opacity: .45; cursor: not-allowed; }
+.tap-dots { font-size: .5em; letter-spacing: 2px; vertical-align: middle; color: #B07A00; white-space: nowrap; }
+.recite-line[data-done] .tap-dots { color: #1E6B35; }
 .sample-cap { font-size: .85rem; font-weight: 700; color: var(--muted); }
 /* Until the page has drawn itself, show only a small "Loading..." instead of the plain page */
 body:not([data-ready]) > * { visibility: hidden; }
@@ -1125,6 +1141,7 @@ window.HUB = {
       instructions: "Press Listen and learn. Listen as each word appears, then say it with me.",
       // How many times each line plays before the whole passage plays once
       repeats: { Tue: 4, Wed: 2, Thu: 1 },
+      tapLines: true, // she can tap each line (or part) to hear it, no waiting
       todo: [
         { text: "Shakespeare memorization", recite: true }
       ],
@@ -1179,6 +1196,7 @@ window.HUB = {
       instructions: "Press Play. Listen to Mom and say each line back in the quiet part. First spoken, then sung.",
       repeats: { Mon: 4, Tue: 4, Wed: 4, Thu: 4, Fri: 4 },
       pauseMatch: 2,
+      tapLines: true, // she can tap any line to hear just that one, with no waiting
       todo: [
         { text: "I Speak Six Languages memorization", recite: true }
       ],
@@ -2530,19 +2548,26 @@ window.HUB = {
     var r = state.recite, s = subjectById[r.id], parts = s && passageParts(s, r.date) || [], n = 0, lines = [], partOf = [];
     parts.forEach(function (p, pi) { p.forEach(function (l) { lines.push(l); partOf.push(pi); }); });
     var grouped = parts.some(function (p) { return p.length > 1; }), meta = s ? passageMeta(s, r.date) : {};
-    var times = meta.times || [];
+    var times = meta.times || [], reps = (s && s.repeats || {})[DAY_KEYS[parse(r.date).getDay()]] || 4;
     return '<section class="panel recite-page">' +
       '<div class="write-top"><button class="btn" data-action="write-back">&larr; Back</button><span class="write-date">' + esc(fmtLong(parse(r.date))) + "</span></div>" +
-      '<div class="prompt-card"><small>Memorize this</small><p>Press play. ' + esc(meta.note ? meta.note : (function (n) { var w = grouped ? "Each part" : "Each line"; return (n === 1 ? w + " plays once" : n === 2 ? w + " plays twice" : w + " plays " + n + " times") + ", then the whole thing once."; })((s && s.repeats || {})[DAY_KEYS[parse(r.date).getDay()]] || 4)) + ' Say each word out loud with me.</p></div>' +
+      '<div class="prompt-card"><small>Memorize this</small><p>Press play. ' + esc(meta.note ? meta.note : (function (n) { var w = grouped ? "Each part" : "Each line"; return (n === 1 ? w + " plays once" : n === 2 ? w + " plays twice" : w + " plays " + n + " times") + ", then the whole thing once."; })((s && s.repeats || {})[DAY_KEYS[parse(r.date).getDay()]] || 4)) + ' ' + (s && s.tapLines ? "Or tap any line to hear just that one. " : "") + 'Say each word out loud with me.</p></div>' +
+      (s && s.tapLines && lines.length ? '<div class="recite-split"><div class="recite-side"><button class="btn btn-sun" data-action="recite-play">&#9654; Play all</button><p class="recite-round" aria-live="polite">Tap a line to hear it.</p></div>' : "") +
       '<div class="recite-lines">' + (lines.length ? lines.map(function (line, li) {
-        return '<p class="recite-line' + (li === 0 ? " big" : "") + (grouped && li > 0 && partOf[li] !== partOf[li - 1] ? " part-start" : "") + '" data-part="' + partOf[li] + '"' + (times[partOf[li]] ? ' data-times="' + (+times[partOf[li]]) + '"' : "") + (meta.together === false ? ' data-alone="1"' : "") + ">" + line.split(/\s+/).filter(Boolean).map(function (w) {
+        return '<p class="recite-line' + (li === 0 ? " big" : "") + (grouped && li > 0 && partOf[li] !== partOf[li - 1] ? " part-start" : "") + '" data-part="' + partOf[li] + '"' + (times[partOf[li]] ? ' data-times="' + (+times[partOf[li]]) + '"' : "") + (meta.together === false ? ' data-alone="1"' : "") + (s.tapLines ? (function () { var need = +times[partOf[li]] || reps, got = Math.min(tapCount(r, partOf[li]), need); return ' data-action="recite-one" data-li="' + partOf[li] + '" data-need="' + need + '" role="button" tabindex="0"' + (got >= need ? ' data-done="1"' : ""); })() : "") + ">" + (s.tapLines ? '<span class="tap-play" aria-hidden="true">&#9654;</span> ' : "") + line.split(/\s+/).filter(Boolean).map(function (w) {
           return '<span class="rw" data-n="' + (n++) + '">' + esc(w) + "</span>";
-        }).join(" ") + "</p>";
+        }).join(" ") + (s.tapLines && partOf[li + 1] !== partOf[li] ? tapDots(r, partOf[li], +times[partOf[li]] || reps) : "") + "</p>";
       }).join("") : '<p class="muted">No passage yet.</p>') + "</div>" +
-      (lines.length ? '<p class="recite-round" aria-live="polite"></p><div class="recite-tools"><button class="btn btn-sun" data-action="recite-play">&#9654; Play</button></div>' : "") +
+      (s && s.tapLines && lines.length ? "</div>" : lines.length ? '<p class="recite-round" aria-live="polite"></p><div class="recite-tools"><button class="btn btn-sun" data-action="recite-play">&#9654; Play</button></div>' : "") +
       "</section>";
   }
   var reciteRun = 0;
+  // Tap-to-play lines (data.js tapLines): how many times she has played each line today, saved on this device
+  function tapKey(r) { return "homeschool-hub-taps-" + (state.kid ? state.kid.id : "_") + "-" + r.id + "-" + r.date; }
+  function tapCounts(r) { try { return JSON.parse(localStorage.getItem(tapKey(r))) || {}; } catch (e) { return {}; } }
+  function tapCount(r, li) { return +tapCounts(r)[li] || 0; }
+  function tapAdd(r, li) { var c = tapCounts(r); c[li] = (+c[li] || 0) + 1; try { localStorage.setItem(tapKey(r), JSON.stringify(c)); } catch (e) {} return c[li]; }
+  function tapDots(r, li, need) { var got = Math.min(tapCount(r, li), need), h = ' <span class="tap-dots" aria-label="' + got + " of " + need + '">'; for (var i = 0; i < need; i++) h += i < got ? "&#9679;" : "&#9675;"; return h + (got >= need ? " &#10003;" : "") + "</span>"; }
   // ---------- Mom's voice for Shakespeare ----------
   // Lines Mom recorded on her page (kept by her Google script, by line text). Playback uses her voice
   // for any line she recorded and the computer voice for the rest.
@@ -2566,7 +2591,7 @@ window.HUB = {
     }).catch(function () { return ""; }).then(function (clip) { delete voiceBusy[k]; return clip; });
     return voiceBusy[k];
   }
-  function stopRecite() { reciteRun++; try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} if (recAudio) { try { recAudio.pause(); } catch (e) {} recAudio = null; } }
+  function stopRecite() { reciteRun++; var pg = document.querySelector(".recite-page.tap-busy"); if (pg) pg.classList.remove("tap-busy"); try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} if (recAudio) { try { recAudio.pause(); } catch (e) {} recAudio = null; } }
   // Each line 4 times on its own (words clear between tries), then the whole passage once.
   // Apple devices list joke voices first (Albert, Bad News, Bubbles...), which talk slowly and strangely.
   // Pick a normal-sounding English voice instead.
@@ -2581,10 +2606,36 @@ window.HUB = {
     return ok.filter(function (v) { return /en-US/i.test(v.lang); })[0] || ok[0] || null;
   }
   try { if (window.speechSynthesis) { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = function () {}; } } catch (e) {}
-  function playRecite(btn) {
+  // onlyLine (a tapped line, data.js tapLines): play just that line once, with no pause after
+  function playRecite(btn, onlyLine) {
+    var voice = niceVoice();
+    if (onlyLine && document.querySelector(".recite-page.tap-busy")) return; // one line at a time
     stopRecite();
     var run = reciteRun, page = document.querySelector(".recite-page"), label = page.querySelector(".recite-round");
     var lines = Array.prototype.slice.call(page.querySelectorAll(".recite-line")), plan = [];
+    page.querySelectorAll(".recite-line.playing").forEach(function (l) { l.classList.remove("playing"); });
+    if (onlyLine) {
+      if (page.classList.contains("tap-busy")) return;
+      page.classList.add("tap-busy");
+      var playBtn = page.querySelector('[data-action="recite-play"]');
+      if (playBtn) playBtn.innerHTML = "&#9654; Play all";
+      // A tapped line plays its whole part (review weeks read two lines together)
+      var group = lines.filter(function (l) { return l.dataset.li === onlyLine.dataset.li; }), queue = group.slice();
+      group.forEach(function (l) { l.classList.add("playing"); });
+      label.textContent = "Listen...";
+      page.querySelectorAll(".rw").forEach(function (w) { w.classList.remove("on", "now"); });
+      (function next() {
+        if (queue.length) { sayLine(queue.shift(), function () { if (run === reciteRun) setTimeout(next, 200); else { page.classList.remove("tap-busy"); group.forEach(function (l) { l.classList.remove("playing"); }); } }); return; }
+          page.classList.remove("tap-busy"); group.forEach(function (l) { l.classList.remove("playing"); });
+          if (run !== reciteRun) return;
+          var li = +onlyLine.dataset.li, need = +onlyLine.dataset.need || 1, got = tapAdd(state.recite, li), last = group[group.length - 1], old = last.querySelector(".tap-dots");
+          if (old) old.outerHTML = tapDots(state.recite, li, need);
+          if (got >= need) group.forEach(function (l) { l.dataset.done = "1"; });
+          var left = Array.prototype.filter.call(page.querySelectorAll(".recite-line[data-action]"), function (l) { return !l.dataset.done; }).length;
+          label.textContent = left ? (got >= need ? "That one is done! Now tap the next one." : "Your turn! Say it out loud, then tap it again (" + got + " of " + need + ").") : "All done! Great job!";
+      })();
+      return;
+    }
     var sub = subjectById[state.recite.id] || {}, reps = (sub.repeats || {})[DAY_KEYS[parse(state.recite.date).getDay()]] || 4;
     // Lines read together in parts (review weeks), or one at a time
     var groups = [];
@@ -2596,7 +2647,6 @@ window.HUB = {
     });
     if (lines.length > 1 && !(lines[0] && lines[0].dataset.alone)) plan.push({ lines: lines, label: "All together!" });
     btn.textContent = "Listening...";
-    var voice = niceVoice();
     function round(ri) {
       if (run !== reciteRun) return;
       page.querySelectorAll(".rw").forEach(function (w) { w.classList.remove("on", "now"); });
@@ -3395,6 +3445,8 @@ window.HUB = {
       state.recite = { id: el.dataset.id, date: el.dataset.date }; state.tab = "recite"; render(); window.scrollTo(0, 0);
     } else if (a === "recite-play") {
       playRecite(el);
+    } else if (a === "recite-one") {
+      playRecite(null, el);
     } else if (a === "write-back") {
       state.tab = "today"; hideHint(); render(); window.scrollTo(0, 0);
     } else if (a === "spell") {
