@@ -1184,10 +1184,14 @@ window.HUB = {
       ],
       passages: {
         "2026-11-02": {
-          lines: ["Spoken line 1", "Spoken line 2", "Spoken line 3", "Spoken line 4",
-                  "Sung line 1", "Sung line 2", "Sung line 3", "Sung line 4"],
+          // Line 1 is learned in 3 pieces (4 times each), then the whole line once
+          lines: ["Spoken line 1, part 1", "Spoken line 1, part 2", "Spoken line 1, part 3", "Spoken line 1",
+                  "Spoken line 2", "Spoken line 3", "Spoken line 4",
+                  "Sung line 1, part 1", "Sung line 1, part 2", "Sung line 1, part 3", "Sung line 1",
+                  "Sung line 2", "Sung line 3", "Sung line 4"],
+          times: [4, 4, 4, 1, 4, 4, 4, 4, 4, 4, 1, 4, 4, 4],
           together: false,
-          note: "Each line plays 4 times, spoken first. Then each line plays 4 times sung."
+          note: "Line 1 comes in 3 pieces, 4 times each, then the whole line once. The other lines play 4 times. Spoken first, then sung."
         }
       },
       links: []
