@@ -782,6 +782,8 @@ body[data-look="calm"] .kid[aria-pressed="true"] { background: #7FA088; border-c
 .t-hw-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; background: #FAF9F6; border: 1px solid #ECE9E2; }
 .assn strong { white-space: pre-line; }
 .t-hw-list b { white-space: pre-line; }
+.t-hw-list .t-btn { white-space: nowrap; padding: 10px 14px; }
+.t-hw-list .t-text { white-space: nowrap; }
 .t-hw-list small { display: block; color: #6F7B76; }
 .t-msg { min-height: 1.3em; margin: 10px 0 0; font-weight: 600; color: #3F7A55; }
 .t-msg.bad { color: #B3261E; }
@@ -1131,7 +1133,9 @@ window.HUB = {
         "2026-10-19": ["Where oxlips", "and the nodding violet grows,"],
         // Thursday: last week's and this week's lines together
         "2026-10-22": ["I know a bank", "where the wild thyme blows,", "Where oxlips", "and the nodding violet grows,"],
-        "2026-10-26": ["Quite overcanopied", "with luscious woodbine"]
+        "2026-10-26": ["Quite overcanopied", "with luscious woodbine"],
+        // Review week: all three weeks together
+        "2026-11-02": ["I know a bank", "where the wild thyme blows,", "Where oxlips", "and the nodding violet grows,", "Quite overcanopied", "with luscious woodbine"]
       },
       links: []
     },
@@ -2335,6 +2339,7 @@ window.HUB = {
     var paperEl = document.getElementById("paper");
     if (state.tab === "write") { if (!paperEl || paperEl.dataset.key !== state.write.key) { view.innerHTML = viewWrite(); afterWriteRender(); } }
     else view.innerHTML = state.tab === "wormhole" ? viewWormhole() : state.tab === "recite" ? viewRecite() : state.tab === "week" ? viewWeek() : state.tab === "progress" ? viewProgress() : state.tab === "subjects" ? viewSubjects() : state.tab === "samples" ? viewSamples() : viewToday();
+    if (state.tab === "recite") Array.prototype.forEach.call(view.querySelectorAll(".recite-line"), function (l) { getClip(l.textContent); });
     if (state.tab === "samples") loadThumbs();
     if (state.tab === "wormhole") fillVideoTitles();
     var ms = view.querySelector(".map-scroll");
@@ -2458,7 +2463,30 @@ window.HUB = {
       "</section>";
   }
   var reciteRun = 0;
-  function stopRecite() { reciteRun++; try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} }
+  // ---------- Mom's voice for Shakespeare ----------
+  // Lines Mom recorded on her page (kept by her Google script, by line text). Playback uses her voice
+  // for any line she recorded and the computer voice for the rest.
+  var voiceList = {}, voiceClips = {}, voiceBusy = {}, voiceReady = false, recAudio = null;
+  try { voiceList = JSON.parse(localStorage.getItem("homeschool-hub-voice")) || {}; } catch (e) {}
+  function voiceKey(text) { return String(text || "").toLowerCase().replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 200); }
+  function applyVoice(list) {
+    voiceReady = true; voiceList = list || {};
+    try { localStorage.setItem("homeschool-hub-voice", JSON.stringify(voiceList)); } catch (e) {}
+  }
+  // The recording for one line, as a data: URL ("" if there isn't one). Saved on this device after the first time.
+  function getClip(text) {
+    var k = voiceKey(text);
+    if (voiceList[k] == null) return Promise.resolve("");
+    if (voiceClips[k]) return Promise.resolve(voiceClips[k]);
+    try { var c = localStorage.getItem("homeschool-hub-voiceclip-" + k + "-" + voiceList[k]); if (c) { voiceClips[k] = c; return Promise.resolve(c); } } catch (e) {}
+    if (!voiceBusy[k]) voiceBusy[k] = fetch(H.writingSaveUrl + "?action=voiceclip&text=" + encodeURIComponent(text)).then(function (r) { return r.json(); }).then(function (j) {
+      var clip = j && j.ok && j.clip ? j.clip : "";
+      if (clip) { voiceClips[k] = clip; try { localStorage.setItem("homeschool-hub-voiceclip-" + k + "-" + voiceList[k], clip); } catch (e) {} }
+      return clip;
+    }).catch(function () { return ""; }).then(function (clip) { delete voiceBusy[k]; return clip; });
+    return voiceBusy[k];
+  }
+  function stopRecite() { reciteRun++; try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} if (recAudio) { try { recAudio.pause(); } catch (e) {} recAudio = null; } }
   // Each line 4 times on its own (words clear between tries), then the whole passage once.
   // Apple devices list joke voices first (Albert, Bad News, Bubbles...), which talk slowly and strangely.
   // Pick a normal-sounding English voice instead.
@@ -2516,7 +2544,27 @@ window.HUB = {
         show(words.length - 1); words[words.length - 1].classList.remove("now"); done();
       }
       show(0);
-      try {
+      if (voiceList[voiceKey(text)] != null) {
+        // Mom's recording: words appear evenly across the clip. Waits briefly for it to arrive, else uses the computer voice.
+        var gave = false;
+        var wait = setTimeout(function () { gave = true; speak(); }, 4000);
+        getClip(text).then(function (clip) {
+          if (gave || run !== reciteRun) return; clearTimeout(wait);
+          if (!clip) { speak(); return; }
+          var a = recAudio = new Audio(clip), dur = voiceList[voiceKey(text)] || 0, began = 0;
+          heard = true;
+          a.onplaying = function () {
+            began = Date.now(); var len = (dur || (isFinite(a.duration) ? a.duration : words.length * 0.4)) * 1000;
+            timer = setInterval(function () { show(Math.floor((Date.now() - began) / len * words.length)); }, 60);
+          };
+          a.onended = finish; a.onerror = function () { if (!began) { heard = false; speak(); } else finish(); };
+          a.play().catch(function () { heard = false; speak(); });
+        });
+        setTimeout(finish, 6000 + words.length * 1500);
+        return;
+      }
+      speak();
+      function speak() { try {
         var u = new SpeechSynthesisUtterance(text.trim());
         if (voice) { u.voice = voice; u.lang = voice.lang; }
         u.rate = 1.05; u.pitch = 1; u.volume = 1;
@@ -2527,6 +2575,7 @@ window.HUB = {
       // If the voice doesn't report each word, show them at talking pace instead
       setTimeout(function () { if (!heard && !finished) timer = setInterval(function () { if (heard) return; if (shown < words.length - 1) show(shown + 1); }, 380); }, 450);
       setTimeout(finish, 1500 + words.length * 900); // keeps going if the voice never answers
+      }
     }
     round(0);
   }
@@ -2652,6 +2701,8 @@ window.HUB = {
       '<button class="t-big" data-action="ti-start"><span class="t-ico" aria-hidden="true">&#128247;</span><span><b>Turn In</b><small>Take a picture of the kids\' work and save it to Google Drive</small></span></button>') + "</section>";
     html += '<section class="t-card">' + (state.wp ? promptFlow() :
       '<button class="t-big t-big-b" data-action="wp-start"><span class="t-ico" aria-hidden="true">&#9998;&#65039;</span><span><b>What\'s the writing prompt?</b><small>Type the prompt for an upcoming writing day</small></span></button>') + "</section>";
+    html += '<section class="t-card">' + (state.vr ? voiceFlow() :
+      '<button class="t-big t-big-b" data-action="vr-start"><span class="t-ico" aria-hidden="true">&#127908;</span><span><b>Record Shakespeare</b><small>Record your voice reading each line. The kids hear you instead of the computer voice.</small></span></button>') + "</section>";
     html += '<section class="t-card">' + (state.hw ? homeworkFlow() :
       '<button class="t-big" data-action="hw-start"><span class="t-ico" aria-hidden="true">&#128221;</span><span><b>Homework</b><small>Give the kids homework: pick when it shows up and when it\'s due</small></span></button>') + "</section>";
     html += '<section class="t-card">' + (state.hk ? hookyFlow() :
@@ -2695,6 +2746,7 @@ window.HUB = {
       })
       .catch(function () { wp.saving = false; wp.bad = true; wp.msg = "Couldn't reach Google. Check the internet and try again."; render(); });
   }
+  function listWords(a) { return a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1]; }
   function promptFlow() {
     var wp = state.wp, w = subjectById.writing || { prompts: {} }, days = writingDays();
     if (!wp.date) wp.date = days[0] || ymd(today);
@@ -2702,6 +2754,7 @@ window.HUB = {
     var parts = promptParts(w.prompts[wp.date]);
     var cur = wp.draft != null ? wp.draft : wp.who === "all" ? (parts.all || "") : (parts[wp.who] || parts.all || "");
     var html = '<div class="t-head"><h3>What\'s the writing prompt?</h3><button class="t-text" data-action="wp-cancel">Done</button></div>' +
+      '<p class="t-hint">Writing is on the schedule every <b>' + esc(listWords(((subjectById.writing || {}).days || []).map(function (k) { return DAY_NAMES[DAY_KEYS.indexOf(k)]; }))) + "</b>. Each of those days needs a prompt. A &#10003; means it has one.</p>" +
       '<p class="t-step">1. Day</p><div class="t-choices">' + days.map(function (k) {
         var d = parse(k);
         return '<button class="t-chip" data-action="wp-day" data-id="' + k + '" aria-pressed="' + (wp.date === k) + '">' + (k === ymd(today) ? "Today" : esc(DAY_NAMES[d.getDay()].slice(0, 3)) + " " + (d.getMonth() + 1) + "/" + d.getDate()) +
@@ -2809,6 +2862,68 @@ window.HUB = {
         render();
       })
       .catch(function () { delete skipBusy[kid + date]; skipMsg = { text: "Couldn't reach Google. Check the internet and try again.", bad: true }; render(); });
+  }
+  // Lines of the Shakespeare passages on the next 8 days (so Thursday's combined passage is included)
+  function voiceLines() {
+    var s = subjectById.shakespeare, out = [];
+    if (!s) return out;
+    for (var i = 0; i < 8; i++) {
+      var d = addDays(today, i);
+      if ((s.days || []).indexOf(DAY_KEYS[d.getDay()]) < 0) continue;
+      (passageFor(s, ymd(d)) || []).forEach(function (l) { if (out.indexOf(l) < 0) out.push(l); });
+    }
+    return out;
+  }
+  function voiceFlow() {
+    var vr = state.vr, lines = voiceLines();
+    var html = '<div class="t-head"><h3>Record Shakespeare</h3><button class="t-text" data-action="vr-cancel">Done</button></div>' +
+      '<p class="t-hint">Tap Record, read the line at normal speed, then tap Stop. It saves right away. Record again to replace it.</p>';
+    if (!voiceReady) html += '<p class="t-msg bad">Your Google script needs the latest code (or refresh this page after deploying it).</p>';
+    html += '<ul class="t-hw-list">' + lines.map(function (l, i) {
+      var k = voiceKey(l), has = voiceList[k] != null, recNow = vr.rec === i, busy = vr.saving === i;
+      return '<li><span><b>' + esc(l) + "</b><small>" + (busy ? "Saving..." : recNow ? "&#128308; Recording... tap Stop when you finish" : has ? "&#10003; Your voice" : "Computer voice") + "</small></span>" +
+        '<span class="t-row" style="gap:6px;flex-wrap:nowrap">' +
+        (has && !recNow ? '<button class="t-text" data-action="vr-play" data-id="' + i + '">&#9654; Play</button>' : "") +
+        '<button class="t-btn' + (recNow ? "" : " ghost") + '" data-action="' + (recNow ? "vr-stop" : "vr-rec") + '" data-id="' + i + '"' + (!voiceReady || (vr.rec != null && !recNow) || vr.saving != null ? " disabled" : "") + ">" + (recNow ? "&#9632; Stop" : "&#9679; Record") + "</button></span></li>";
+    }).join("") + "</ul>" +
+      '<p class="t-msg' + (vr.bad ? " bad" : "") + '" aria-live="polite">' + esc(vr.msg || "") + "</p>";
+    return html;
+  }
+  var vrStream = null, vrRecorder = null, vrChunks = [], vrStart = 0;
+  function vrRecord(i) {
+    var vr = state.vr;
+    if (!navigator.mediaDevices || !window.MediaRecorder) { vr.bad = true; vr.msg = "This browser can't record. Try Chrome."; render(); return; }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      vrStream = stream; vrChunks = [];
+      var types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"], type = types.filter(function (t) { return MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t); })[0];
+      vrRecorder = type ? new MediaRecorder(stream, { mimeType: type }) : new MediaRecorder(stream);
+      vrRecorder.ondataavailable = function (e) { if (e.data && e.data.size) vrChunks.push(e.data); };
+      vrRecorder.onstop = function () { vrUpload(i, new Blob(vrChunks, { type: vrRecorder.mimeType || type || "audio/webm" }), (Date.now() - vrStart) / 1000); };
+      vrRecorder.start(); vrStart = Date.now();
+      vr.rec = i; vr.bad = false; vr.msg = ""; render();
+    }).catch(function () { vr.bad = true; vr.msg = "The microphone is blocked. Allow it for this site, then try again."; render(); });
+  }
+  function vrStopRec() {
+    try { if (vrRecorder && vrRecorder.state !== "inactive") vrRecorder.stop(); } catch (e) {}
+    try { vrStream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+  }
+  function vrUpload(i, blob, dur) {
+    var vr = state.vr || {}, text = voiceLines()[i];
+    vr.rec = null; vr.saving = i; vr.msg = ""; render();
+    var fr = new FileReader();
+    fr.onload = function () {
+      var url = String(fr.result), data = url.split(",")[1] || "";
+      fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "voice", text: text, mime: blob.type, data: data, dur: Math.round(dur * 100) / 100 }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          vr.saving = null;
+          if (!j || !j.ok || !j.voice) { vr.bad = true; vr.msg = "Couldn't save. Your Google script needs the latest code."; render(); return; }
+          applyVoice(j.voice); voiceClips[voiceKey(text)] = url;
+          vr.bad = false; vr.msg = "Saved \u201c" + text + "\u201d in your voice."; render();
+        })
+        .catch(function () { vr.saving = null; vr.bad = true; vr.msg = "Couldn't reach Google. Check the internet and try again."; render(); });
+    };
+    fr.readAsDataURL(blob);
   }
   var HW_SUBJECTS = ["Math", "Bible", "History", "Science", "Language Arts", "Writing"];
   function hwRead() {
@@ -3112,6 +3227,16 @@ window.HUB = {
       state.hk = {}; render();
     } else if (a === "hk-cancel") {
       state.hk = null; render();
+    } else if (a === "vr-start") {
+      state.vr = {}; render();
+    } else if (a === "vr-cancel") {
+      if (state.vr && state.vr.rec != null) vrStopRec(); state.vr = null; render();
+    } else if (a === "vr-rec") {
+      vrRecord(+el.dataset.id);
+    } else if (a === "vr-stop") {
+      vrStopRec();
+    } else if (a === "vr-play") {
+      var vt = voiceLines()[+el.dataset.id]; getClip(vt).then(function (c) { if (c) { try { new Audio(c).play(); } catch (e) {} } });
     } else if (a === "hw-start") {
       state.hw = {}; render();
     } else if (a === "hw-cancel") {
@@ -3277,6 +3402,7 @@ window.HUB = {
       }
       if (j && j.dates) { applyDates(j.dates); if (!(state.tab === "write" || state.wp || state.ti || state.hw)) render(); }
       if (j && j.done) applyChecks(j.done);
+      if (j && j.voice) applyVoice(j.voice);
       if (j && j.homework) { hwReady = true; applyHomework(j.homework); if (!(state.tab === "write" || state.wp || state.ti || state.hw)) render(); }
       if (!j || !j.prompts) return;
       momPrompts = j.prompts;
