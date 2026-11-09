@@ -1167,6 +1167,7 @@ window.HUB = {
       // The quiet time after each line is as long as the line itself, plus 2 seconds
       pauseMatch: 2,
       tapLines: true, // the kids tap each line to hear it, no waiting
+      newLineTimes: 2, // a line Mom adds on her page plays twice; the older lines play once
       todo: [
         { text: "Books of the Bible memorization", recite: true }
       ],
@@ -1184,33 +1185,6 @@ window.HUB = {
           times: [1, 1, 1, 1, 2],
           together: false,
           note: "Each line plays once. The new line (the last one) plays twice."
-        }
-      },
-      links: []
-    },
-    {
-      // Aurora only, this week only (Mom asked to remove it after Saturday 11/7).
-      // Audio only: the line names are just labels for Mom's recordings.
-      id: "languages", name: "I Speak Six Languages", icon: "🌍", color: "blue",
-      kids: ["kid1"], from: "2026-11-02", until: "2026-11-06",
-      days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
-      instructions: "Press Play. Listen to Mom and say each line back in the quiet part. First spoken, then sung.",
-      repeats: { Mon: 4, Tue: 4, Wed: 4, Thu: 4, Fri: 4 },
-      pauseMatch: 2,
-      tapLines: true, // she can tap any line to hear just that one, with no waiting
-      todo: [
-        { text: "I Speak Six Languages memorization", recite: true }
-      ],
-      passages: {
-        "2026-11-02": {
-          // Line 1 is learned in 3 pieces (4 times each), then the whole line once
-          lines: ["Spoken line 1, part 1", "Spoken line 1, part 2", "Spoken line 1, part 3", "Spoken line 1",
-                  "Spoken line 2", "Spoken line 3", "Spoken line 4",
-                  "Sung line 1, part 1", "Sung line 1, part 2", "Sung line 1, part 3", "Sung line 1",
-                  "Sung line 2", "Sung line 3", "Sung line 4"],
-          times: [4, 4, 4, 1, 4, 4, 4, 4, 4, 4, 1, 4, 4, 4],
-          together: false,
-          note: "Line 1 comes in 3 pieces, 4 times each, then the whole line once. The other lines play 4 times. Spoken first, then sung."
         }
       },
       links: []
@@ -2525,21 +2499,41 @@ window.HUB = {
   // Shakespeare: words appear one at a time while a slow voice reads each one.
   // A passage is a list of lines, or (review weeks) a list of parts like [["line", "line"], ["line", "line"]]:
   // each part is read as one piece, with a say-it-back pause after it.
-  function passageParts(s, date) {
+  // Lines Mom adds herself on her page ("+ Add a line" in Record memory work). Her Google script keeps them
+  // as a JSON list in the prompt slot for the made-up date MEM_KEY, so no new script code is needed:
+  // [{ s: "bible", t: "line text", from: "2026-11-09", fresh: false }]. fresh = start a new passage with only the new lines.
+  var MEM_KEY = "2000-01-01";
+  function memExtras() { try { var v = JSON.parse(momPrompts[MEM_KEY] || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+  function extrasFor(s, date) {
+    var ex = memExtras().filter(function (e) { return e && e.s === s.id && e.t && e.from && e.from <= date; }).sort(function (a, b) { return a.from < b.from ? -1 : a.from > b.from ? 1 : 0; }), fresh = "";
+    ex.forEach(function (e) { if (e.fresh) fresh = e.from; });
+    return { list: fresh ? ex.filter(function (e) { return e.from >= fresh; }) : ex, fresh: fresh };
+  }
+  function basePassage(s, date) {
     var best = null, k;
     for (k in s.passages || {}) if (k <= date && (!best || k > best)) best = k;
-    var v = best ? s.passages[best] : null;
-    if (!v) return null;
-    if (!Array.isArray(v)) v = v.lines || [];
-    return v.map(function (x) { return Array.isArray(x) ? x : [x]; });
+    return best;
+  }
+  function passageParts(s, date) {
+    var best = basePassage(s, date), ex = extrasFor(s, date), v = best ? s.passages[best] : null;
+    if (ex.fresh && (!best || ex.fresh >= best)) v = [];
+    if (!v && !ex.list.length) return null;
+    if (v && !Array.isArray(v)) v = v.lines || [];
+    return (v || []).map(function (x) { return Array.isArray(x) ? x : [x]; }).concat(ex.list.map(function (e) { return [e.t]; }));
   }
   // Extra settings for a passage written as { lines: [...], times: [1, 1, 2], together: false, note: "..." }:
   // times = how many times each line/part plays (instead of the day's count), together = play the whole thing at the end
   function passageMeta(s, date) {
-    var best = null, k;
-    for (k in s.passages || {}) if (k <= date && (!best || k > best)) best = k;
-    var v = best ? s.passages[best] : null;
-    return v && !Array.isArray(v) ? v : {};
+    var best = basePassage(s, date), ex = extrasFor(s, date), v = best ? s.passages[best] : null;
+    if (ex.fresh && (!best || ex.fresh >= best)) return {};
+    var meta = v && !Array.isArray(v) ? v : {};
+    if (!ex.list.length || !meta.times) return meta;
+    // Added lines: the newest one plays twice (s.newLineTimes), every other line once
+    var parts = passageParts(s, date), newest = ex.list[ex.list.length - 1].from, out = {}, k;
+    for (k in meta) out[k] = meta[k];
+    var nBase = parts.length - ex.list.length;
+    out.times = parts.map(function (p, i) { return i >= nBase && ex.list[i - nBase].from === newest ? (s.newLineTimes || 2) : 1; });
+    return out;
   }
   function passageFor(s, date) {
     var parts = passageParts(s, date);
@@ -3022,6 +3016,8 @@ window.HUB = {
     if (!voiceReady) html += '<p class="t-msg bad">Your Google script needs the latest code (or refresh this page after deploying it).</p>';
     var subOf = {};
     subjects.forEach(function (s) { if (s.passages) Object.keys(s.passages).forEach(function (k) { [].concat.apply([], (Array.isArray(s.passages[k]) ? s.passages[k] : s.passages[k].lines || []).map(function (x) { return Array.isArray(x) ? x : [x]; })).forEach(function (l) { subOf[l] = s.name; }); }); });
+    memExtras().forEach(function (e) { if (e && subjectById[e.s]) subOf[e.t] = subjectById[e.s].name; });
+    html += addLineForm(vr);
     html += '<ul class="t-hw-list">' + lines.map(function (l, i) {
       var k = voiceKey(l), has = voiceList[k] != null, recNow = vr.rec === i, busy = vr.saving === i;
       return (i === 0 || subOf[lines[i - 1]] !== subOf[l] ? '<li class="t-hw-head">' + esc(subOf[l] || "") + "</li>" : "") + '<li><span><b>' + esc(l) + "</b><small>" + (busy ? "Saving..." : recNow ? "&#128308; Recording... tap Stop when you finish" : has ? "&#10003; Your voice" : "Computer voice") + "</small></span>" +
@@ -3031,6 +3027,59 @@ window.HUB = {
     }).join("") + "</ul>" +
       '<p class="t-msg' + (vr.bad ? " bad" : "") + '" aria-live="polite">' + esc(vr.msg || "") + "</p>";
     return html;
+  }
+  // "+ Add a line": Mom types a new memory line for Shakespeare or Books of the Bible, then records it below
+  var MEM_SUBJECTS = ["shakespeare", "bible"];
+  function addLineForm(vr) {
+    var mine = memExtras().map(function (e, i) { return { e: e, i: i }; }).filter(function (x) { return x.e && x.e.from >= ymd(addDays(today, -7)); });
+    var list = mine.length ? '<p class="t-step" style="margin-top:10px">Lines you added</p><ul class="t-hw-list">' + mine.map(function (x) {
+      var sub = subjectById[x.e.s] || {};
+      return '<li><span><b>' + esc(x.e.t) + "</b><small>" + esc(sub.name || x.e.s) + ", starting " + esc(fmtLong(parse(x.e.from))) + (x.e.fresh ? " (new passage)" : "") + '</small></span><button class="t-text" data-action="vr-add-del" data-id="' + x.i + '"' + (vr.adding ? " disabled" : "") + ">Remove</button></li>";
+    }).join("") + "</ul>" : "";
+    var a = vr.add;
+    if (!a) return '<div class="t-row" style="margin:10px 0"><button class="t-btn" data-action="vr-add">+ Add a line</button></div>' + list;
+    return '<div class="t-card-in" style="margin:10px 0;padding:12px;border:1.5px solid #D9DDD6;border-radius:12px">' +
+      '<p class="t-step">1. Which memory work?</p><div class="t-row" style="gap:8px;flex-wrap:wrap">' + MEM_SUBJECTS.filter(function (id) { return subjectById[id]; }).map(function (id) {
+        return '<button class="t-chip" data-action="vr-add-sub" data-id="' + id + '" aria-pressed="' + (a.sub === id) + '">' + esc(subjectById[id].name) + "</button>";
+      }).join("") + "</div>" +
+      '<p class="t-step">2. Type the line (the kids see these words)</p><input class="t-area" id="vr-add-text" maxlength="200" placeholder="e.g. Judges, Ruth, and Samuel..." value="' + esc(a.text || "") + '">' +
+      '<div class="t-dates"><label><span class="t-step">3. Starts on</span><input class="t-area" type="date" id="vr-add-from" value="' + esc(a.from) + '"></label></div>' +
+      '<p class="t-step">4. Keep the lines they already know?</p><div class="t-row" style="gap:8px;flex-wrap:wrap">' +
+      '<button class="t-chip" data-action="vr-add-fresh" data-id="0" aria-pressed="' + !a.fresh + '">Add to them</button>' +
+      '<button class="t-chip" data-action="vr-add-fresh" data-id="1" aria-pressed="' + !!a.fresh + '">Start fresh with this line</button></div>' +
+      '<div class="t-row" style="margin-top:12px;gap:10px"><button class="t-btn" data-action="vr-add-save"' + (vr.adding ? " disabled" : "") + ">" + (vr.adding ? "Saving..." : "Add line") + '</button><button class="t-text" data-action="vr-add-cancel">Cancel</button></div></div>' + list;
+  }
+  function vrAddRead() {
+    var a = state.vr && state.vr.add; if (!a) return;
+    var t = document.getElementById("vr-add-text"), f = document.getElementById("vr-add-from");
+    if (t) a.text = t.value; if (f) a.from = f.value;
+  }
+  function memSave(list, okMsg) {
+    var vr = state.vr, text = list.length ? JSON.stringify(list) : "";
+    if (text.length > 1990) { vr.bad = true; vr.msg = "That's too many added lines. Remove some old ones first."; render(); return; }
+    vr.adding = true; vr.bad = false; vr.msg = ""; render();
+    fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "prompt", date: MEM_KEY, prompt: text }) })
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        var j = null; try { j = JSON.parse(t); } catch (e) {}
+        vr.adding = false;
+        if (!j || !j.ok) { vr.bad = true; vr.msg = "Couldn't save. Your Google script may need the latest code."; render(); return; }
+        if (j.prompts) momPrompts = j.prompts;
+        if (text) momPrompts[MEM_KEY] = text; else delete momPrompts[MEM_KEY];
+        try { localStorage.setItem(MKEY, JSON.stringify(momPrompts)); } catch (e) {}
+        vr.add = null; vr.msg = okMsg; render();
+      })
+      .catch(function () { vr.adding = false; vr.bad = true; vr.msg = "Couldn't reach Google. Check the internet and try again."; render(); });
+  }
+  function vrAddSave() {
+    vrAddRead();
+    var vr = state.vr, a = vr.add, text = String(a.text || "").replace(/\s+/g, " ").trim();
+    if (!a.sub) { vr.bad = true; vr.msg = "Pick Shakespeare or Books of the Bible first."; render(); return; }
+    if (!text) { vr.bad = true; vr.msg = "Type the line first."; render(); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(a.from || "")) { vr.bad = true; vr.msg = "Pick the day it starts."; render(); return; }
+    var list = memExtras().filter(function (e) { return e && e.from >= ymd(addDays(today, -60)); });
+    list.push({ s: a.sub, t: text, from: a.from, fresh: !!a.fresh });
+    memSave(list, "Added \u201c" + text + "\u201d. Tap Record next to it below to record it.");
   }
   var vrStream = null, vrRecorder = null, vrChunks = [], vrStart = 0;
   function vrRecord(i) {
@@ -3370,6 +3419,19 @@ window.HUB = {
       state.hk = {}; render();
     } else if (a === "hk-cancel") {
       state.hk = null; render();
+    } else if (a === "vr-add") {
+      state.vr.add = { from: ymd(today), sub: "", fresh: false }; state.vr.msg = ""; render();
+    } else if (a === "vr-add-sub") {
+      vrAddRead(); state.vr.add.sub = el.dataset.id; render();
+    } else if (a === "vr-add-fresh") {
+      vrAddRead(); state.vr.add.fresh = el.dataset.id === "1"; render();
+    } else if (a === "vr-add-cancel") {
+      state.vr.add = null; render();
+    } else if (a === "vr-add-save") {
+      vrAddSave();
+    } else if (a === "vr-add-del") {
+      var mx = memExtras(), gone = mx[+el.dataset.id]; mx.splice(+el.dataset.id, 1);
+      memSave(mx, gone ? "Removed \u201c" + gone.t + "\u201d." : "Removed.");
     } else if (a === "vr-start") {
       state.vr = {}; render();
     } else if (a === "vr-cancel") {
