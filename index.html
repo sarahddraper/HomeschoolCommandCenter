@@ -782,6 +782,8 @@ body[data-look="calm"] .kid[aria-pressed="true"] { background: #7FA088; border-c
 .watch-title { font-weight: 700; font-size: 1.15rem; margin: 0 0 8px; }
 .watch-frame { position: relative; width: 100%; max-width: 760px; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #000; margin-bottom: 10px; }
 .watch-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.t-sub { margin: 22px 0 4px; font-size: 1.05rem; }
+.t-chip.t-off { background: #F3E3E3; border-color: #E2B9B9; color: #8A3B3B; }
 .t-dates { display: flex; flex-wrap: wrap; gap: 14px; }
 .t-dates label { flex: 1 1 200px; }
 .t-dates .t-step { display: block; }
@@ -1141,6 +1143,7 @@ window.HUB = {
     },
     {
       id: "shakespeare", name: "Shakespeare", icon: "🎭", color: "teal",
+      off: true, // turned off for now (Nov 2026); Mom turns it back on from Play Hooky & skip days on her page
       days: ["Tue", "Wed", "Thu"],
       instructions: "Press Listen and learn. Listen as each word appears, then say it with me.",
       // How many times each line plays before the whole passage plays once
@@ -1368,6 +1371,16 @@ window.HUB = {
   try { writingExtra = JSON.parse(localStorage.getItem("homeschool-hub-writing-extra")) || []; } catch (e) {}
   try { xcMoves = JSON.parse(localStorage.getItem("homeschool-hub-xc-move")) || []; } catch (e) {}
   try { hookyDays = JSON.parse(localStorage.getItem("homeschool-hub-hooky")) || []; } catch (e) {}
+  // Mom's subject switches, kept by her Google script with the other date lists (no new script code):
+  //   dates.skip["math|kid2"] = ["2026-11-19"]  skip one subject on a day (kid id, or "all" for both)
+  //   dates.subjHide.math / dates.subjShow.shakespeare = ["2000-01-01"]  turn a subject off or (if data.js has off: true) back on
+  var momDates = {};
+  try { momDates = JSON.parse(localStorage.getItem("homeschool-hub-dates")) || {}; } catch (e) {}
+  var FLAG = "2000-01-01";
+  function flagOn(key, who) { return ((momDates[key] || {})[who] || []).indexOf(FLAG) >= 0; }
+  function subjectOff(s) { return s.off ? !flagOn("subjShow", s.id) : flagOn("subjHide", s.id); }
+  function skipList(sid, who) { return (momDates.skip || {})[sid + "|" + who] || []; }
+  function skippedFor(s, d, kidId) { var k = ymd(d); return skipList(s.id, "all").indexOf(k) >= 0 || (!!kidId && skipList(s.id, kidId).indexOf(k) >= 0); }
   // The first day this device used the hub; older to-dos never count as unfinished.
   if (!store.start) { store.start = ymd(today); save(); }
 
@@ -1417,7 +1430,7 @@ window.HUB = {
   }
   // A subject with "from"/"until" dates (data.js) only shows between them
   function inDates(s, d) { var day = ymd(d || today); return (!s.from || day >= s.from) && (!s.until || day <= s.until); }
-  function mySubjects(d) { return subjects.filter(function (s) { return forKid(s) && inDates(s, d); }); }
+  function mySubjects(d) { return subjects.filter(function (s) { return forKid(s) && inDates(s, d) && !subjectOff(s); }); }
   // "mapOnly" subjects (like Art) never show on the main page; pass all=true to include them.
   // A special day in data.js replaces the usual schedule for that date (per child).
   function special(d) {
@@ -1440,10 +1453,11 @@ window.HUB = {
   function subjectsOn(d, all) {
     if (isHooky(d)) return [];
     var sp = special(d);
-    if (sp) return sp.map(function (e) { return subjectById[e.subject]; }).filter(function (s) { return s && (all || !s.mapOnly); });
+    var kidId = state.kid && state.kid.id;
+    if (sp) return sp.map(function (e) { return subjectById[e.subject]; }).filter(function (s) { return s && (all || !s.mapOnly) && !subjectOff(s) && !skippedFor(s, d, kidId); });
     var key = DAY_KEYS[d.getDay()];
     // Mom can add writing on extra days (dates.writingExtra.all)
-    return mySubjects(d).filter(function (s) { return (s.days.indexOf(key) >= 0 || (s.id === "writing" && writingExtra.indexOf(ymd(d)) >= 0)) && (all || !s.mapOnly) && !(s.id === "spelling" && key === "Fri" && testEarly(kidName(), addDays(d, -1))); });
+    return mySubjects(d).filter(function (s) { return !skippedFor(s, d, kidId); }).filter(function (s) { return (s.days.indexOf(key) >= 0 || (s.id === "writing" && writingExtra.indexOf(ymd(d)) >= 0)) && (all || !s.mapOnly) && !(s.id === "spelling" && key === "Fri" && testEarly(kidName(), addDays(d, -1))); });
   }
   // A day's prompt is either one prompt for both kids, or (when Mom gives them different ones)
   // a JSON string like {"kid1":"...","kid2":"..."} so her Google script can keep it as-is.
@@ -2857,7 +2871,7 @@ window.HUB = {
     html += '<section class="t-card">' + (state.hw ? homeworkFlow() :
       '<button class="t-big" data-action="hw-start"><span class="t-ico" aria-hidden="true">&#128221;</span><span><b>Homework</b><small>Give the kids homework: pick when it shows up and when it\'s due</small></span></button>') + "</section>";
     html += '<section class="t-card">' + (state.hk ? hookyFlow() :
-      '<button class="t-big t-big-c" data-action="hk-start"><span class="t-ico" aria-hidden="true">&#127881;</span><span><b>Play Hooky</b><small>Pick days with no school. Everything on those days is cancelled.</small></span></button>') + "</section>";
+      '<button class="t-big t-big-c" data-action="hk-start"><span class="t-ico" aria-hidden="true">&#127881;</span><span><b>Play Hooky &amp; skip days</b><small>Cancel a whole day, skip one subject, or turn a subject off</small></span></button>') + "</section>";
     html += '<section class="t-card">' + (state.xm ? xcMoveFlow() :
       '<button class="t-big t-big-b" data-action="xm-start"><span class="t-ico" aria-hidden="true">&#11088;</span><span><b>Move Shakespeare extra credit</b><small>Do the Friday recite-for-points on an earlier day that week</small></span></button>') + "</section>";
     html += '<section class="t-card">' + skipCard() + "</section>";
@@ -3277,13 +3291,67 @@ window.HUB = {
   function hookyFlow() {
     var days = [];
     for (var i = 0; i < 11; i++) { var d = addDays(today, i); if (d.getDay() !== 0 && d.getDay() !== 6) days.push(d); }
-    return '<div class="t-head"><h3>Play Hooky</h3><button class="t-text" data-action="hk-cancel">Done</button></div>' +
-      '<p class="t-hint">Tap a day to cancel everything on it for both kids. Tap again to bring it back.</p><div class="t-choices">' + days.map(function (d) {
+    return '<div class="t-head"><h3>Play Hooky &amp; skip days</h3><button class="t-text" data-action="hk-cancel">Done</button></div>' +
+      '<h4 class="t-sub" style="margin-top:6px">Whole day off</h4><p class="t-hint">Tap a day to cancel everything on it for both kids. Tap again to bring it back.</p><div class="t-choices">' + days.map(function (d) {
         var key = ymd(d), on = isHooky(d), busy = skipBusy["h" + key];
         return '<button class="t-chip" data-action="hooky" data-id="' + key + '" aria-pressed="' + on + '"' + (busy ? " disabled" : "") + ">" +
           DAY_NAMES[d.getDay()].slice(0, 3) + " " + (d.getMonth() + 1) + "/" + d.getDate() + (key === ymd(today) ? " (today)" : "") + (on ? " &middot; hooky" : "") + "</button>";
       }).join("") + "</div>" +
+      skipSubjectSection(days) + subjectSwitchSection() +
       '<p class="t-msg' + (state.hk.bad ? " bad" : "") + '" aria-live="polite">' + esc(state.hk.msg || "") + "</p>";
+  }
+  // Skip one subject on one day, for one kid or both
+  function skipSubjectSection(days) {
+    var hk = state.hk;
+    if (!hk.sday) hk.sday = ymd(days[0]);
+    if (!hk.swho) hk.swho = "all";
+    var dd = parse(hk.sday), key = DAY_KEYS[dd.getDay()];
+    var subs = subjects.filter(function (s) { return !s.mapOnly && !subjectOff(s) && (s.days.indexOf(key) >= 0 || (s.id === "writing" && writingExtra.indexOf(hk.sday) >= 0)) && inDates(s, dd); });
+    return '<h4 class="t-sub">Skip one subject</h4><p class="t-hint">Pick a day and who, then tap a subject to skip it. Tap it again to bring it back.</p>' +
+      '<p class="t-step">Day</p><div class="t-choices">' + days.map(function (d) {
+        var k = ymd(d), n = subjects.filter(function (s) { return skipList(s.id, "all").concat(skipList(s.id, "kid1"), skipList(s.id, "kid2")).indexOf(k) >= 0; }).length;
+        return '<button class="t-chip" data-action="sk-day" data-id="' + k + '" aria-pressed="' + (hk.sday === k) + '">' + DAY_NAMES[d.getDay()].slice(0, 3) + " " + (d.getMonth() + 1) + "/" + d.getDate() + (n ? " &middot; " + n + " skipped" : "") + "</button>";
+      }).join("") + "</div>" +
+      '<p class="t-step">Who</p><div class="t-choices">' + [{ id: "all", name: "Both" }].concat(kids).map(function (k) {
+        return '<button class="t-chip" data-action="sk-who" data-id="' + esc(k.id) + '" aria-pressed="' + (hk.swho === k.id) + '">' + esc(k.name) + "</button>";
+      }).join("") + "</div>" +
+      '<p class="t-step">Subjects on ' + esc(fmtLong(dd)) + '</p><div class="t-choices">' + (subs.length ? subs.map(function (s) {
+        var on = skipList(s.id, hk.swho).indexOf(hk.sday) >= 0, both = hk.swho !== "all" && skipList(s.id, "all").indexOf(hk.sday) >= 0, busy = skipBusy["s" + s.id + hk.swho + hk.sday];
+        return '<button class="t-chip" data-action="sk-subj" data-id="' + esc(s.id) + '" aria-pressed="' + (on || both) + '"' + (busy || both ? " disabled" : "") + ">" + esc(s.name) + (on || both ? " &middot; skipped" + (both ? " for both" : "") : "") + "</button>";
+      }).join("") : '<span class="t-hint">Nothing is scheduled that day.</span>') + "</div>";
+  }
+  // Turn a subject off for now (hidden from the kids' pages) and back on
+  function subjectSwitchSection() {
+    return '<h4 class="t-sub">Subjects on the kids\' pages</h4><p class="t-hint">Tap a subject to turn it off for now. Tap it again to bring it back.</p><div class="t-choices">' +
+      subjects.filter(function (s) { return !s.mapOnly && inDates(s, today); }).map(function (s) {
+        var off = subjectOff(s), busy = skipBusy["o" + s.id];
+        return '<button class="t-chip' + (off ? " t-off" : "") + '" data-action="sk-onoff" data-id="' + esc(s.id) + '" aria-pressed="' + !off + '"' + (busy ? " disabled" : "") + ">" + (off ? "&#10005; " : "&#10003; ") + esc(s.name) + (off ? " (off)" : "") + "</button>";
+      }).join("") + "</div>";
+  }
+  function postToggle(busyKey, body, okMsg) {
+    var hk = state.hk;
+    if (!H.writingSaveUrl) { hk.bad = true; hk.msg = "Google Drive isn't connected yet."; render(); return; }
+    skipBusy[busyKey] = true; hk.msg = "Saving..."; hk.bad = false; render();
+    body.action = "toggleDate";
+    fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        var j = null; try { j = JSON.parse(t); } catch (e) {}
+        delete skipBusy[busyKey];
+        if (!j || !j.ok || !j.dates) { hk.bad = true; hk.msg = "Couldn't save. Your Google script may need the latest code."; render(); return; }
+        applyDates(j.dates); hk.msg = okMsg; render();
+      })
+      .catch(function () { delete skipBusy[busyKey]; hk.bad = true; hk.msg = "Couldn't reach Google. Check the internet and try again."; render(); });
+  }
+  function toggleSkipSubject(sid) {
+    var hk = state.hk, s = subjectById[sid], on = skipList(sid, hk.swho).indexOf(hk.sday) < 0, who = hk.swho === "all" ? "both kids" : hwKidsLabel([hk.swho]);
+    postToggle("s" + sid + hk.swho + hk.sday, { key: "skip", who: sid + "|" + hk.swho, date: hk.sday, on: on },
+      (on ? s.name + " is skipped for " + who + " on " : s.name + " is back for " + who + " on ") + fmtLong(parse(hk.sday)) + ".");
+  }
+  function toggleSubjectOnOff(sid) {
+    var s = subjectById[sid], turnOff = !subjectOff(s);
+    postToggle("o" + sid, s.off ? { key: "subjShow", who: sid, date: FLAG, on: !turnOff } : { key: "subjHide", who: sid, date: FLAG, on: turnOff },
+      s.name + (turnOff ? " is off. The kids won't see it until you turn it back on." : " is back on the kids' pages."));
   }
   function toggleHooky(date) {
     if (!H.writingSaveUrl) return;
@@ -3564,6 +3632,14 @@ window.HUB = {
       state.xm = null; render();
     } else if (a === "xcmove") {
       toggleXcMove(el.dataset.id);
+    } else if (a === "sk-day") {
+      state.hk.sday = el.dataset.id; render();
+    } else if (a === "sk-who") {
+      state.hk.swho = el.dataset.id; render();
+    } else if (a === "sk-subj") {
+      toggleSkipSubject(el.dataset.id);
+    } else if (a === "sk-onoff") {
+      toggleSubjectOnOff(el.dataset.id);
     } else if (a === "hooky") {
       toggleHooky(el.dataset.id);
     } else if (a === "early") {
@@ -3684,6 +3760,8 @@ window.HUB = {
   // types on her teacher page (kept by her Google script).
   // Date lists Mom sets on her page, kept by her Google script (e.g. dates.hooky.all = ["2026-10-20"])
   function applyDates(dates) {
+    momDates = dates || {};
+    try { localStorage.setItem("homeschool-hub-dates", JSON.stringify(momDates)); } catch (e) {}
     hookyDays = (dates.hooky && dates.hooky.all) || [];
     try { localStorage.setItem("homeschool-hub-hooky", JSON.stringify(hookyDays)); } catch (e) {}
     xcMoves = (dates.xcMove && dates.xcMove.all) || [];
