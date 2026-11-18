@@ -775,6 +775,13 @@ body[data-look="calm"] .kid[aria-pressed="true"] { background: #7FA088; border-c
 .t-hint { margin: -2px 0 10px; color: #6F7B76; font-size: .95rem; }
 .t-name { color: #5D6B65; font-size: .95rem; margin: 10px 0 14px; }
 .t-name b { color: #2E3A36; }
+.watch-item + .watch-item { margin-top: 18px; }
+.watch-mode { display: inline-block; margin: 0 0 8px; padding: 6px 14px; border-radius: 999px; font-weight: 800; font-size: 1.05rem; }
+.watch-mode.own { background: #DCEBFF; color: #1F4E8C; }
+.watch-mode.together { background: #FFE6C7; color: #8A4B00; }
+.watch-title { font-weight: 700; font-size: 1.15rem; margin: 0 0 8px; }
+.watch-frame { position: relative; width: 100%; max-width: 760px; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #000; margin-bottom: 10px; }
+.watch-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 .t-dates { display: flex; flex-wrap: wrap; gap: 14px; }
 .t-dates label { flex: 1 1 200px; }
 .t-dates .t-step { display: block; }
@@ -1515,7 +1522,7 @@ window.HUB = {
     (store.pending || []).forEach(function (p) { if (p.kid === kidId) { if (p.on) m[p.key] = m[p.key] || Date.now(); else delete m[p.key]; } });
     var before = JSON.stringify(store.done[kidId] || {});
     store.done[kidId] = m; save();
-    if (JSON.stringify(m) !== before && !(state.tab === "write" || state.wp || state.ti || state.hw || document.querySelector(".code-pop"))) { var y = window.scrollY; render(); window.scrollTo(0, y); }
+    if (JSON.stringify(m) !== before && !(state.tab === "write" || state.wp || state.ti || state.hw || state.vd || document.querySelector(".code-pop"))) { var y = window.scrollY; render(); window.scrollTo(0, y); }
   }
   // Check marks Mom asked to add after the fact (data.js grantChecks), added once
   function grantChecks(kidId, done) {
@@ -1864,6 +1871,17 @@ window.HUB = {
     if (dueHere.length) {
       html += '<section class="panel"><h2>' + (isToday ? esc(T.dueToday) : "Due on " + DAY_NAMES[d.getDay()]) + '</h2><div class="list">' +
         dueHere.map(function (a) { return assnRow(a, true); }).join("") + "</div></section>";
+    }
+
+    var vids = isHooky(d) ? [] : videosFor(ymd(d));
+    if (vids.length) {
+      html += '<section class="panel watch-panel"><h2>&#127916; Watch this</h2>' + vids.map(function (v) {
+        var id = ytId(v.url), start = (String(v.url).match(/[?&]t=(\d+)/) || [])[1];
+        return '<div class="watch-item"><p class="watch-mode ' + (v.mode === "together" ? "together" : "own") + '">' + (v.mode === "together" ? "&#128106; Together with Mom" : "&#128100; On your own") + "</p>" +
+          (v.title ? '<p class="watch-title">' + esc(v.title) + "</p>" : "") +
+          (id ? '<div class="watch-frame"><iframe src="https://www.youtube-nocookie.com/embed/' + id + "?rel=0" + (start ? "&start=" + start : "") + '" title="' + esc(v.title || "Video") + '" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>' : "") +
+          '<p><a class="btn btn-sun" href="' + esc(v.url) + '" target="_blank" rel="noopener">' + (id ? "Open in YouTube" : "&#9654; Watch the video") + "</a></p></div>";
+      }).join("") + "</section>";
     }
 
     var comingUp = isHooky(d) ? [] : myAssignments().filter(function (a) { return a.start && a.start <= ymd(d) && a.due > ymd(d); });
@@ -2832,6 +2850,8 @@ window.HUB = {
       '<button class="t-big" data-action="ti-start"><span class="t-ico" aria-hidden="true">&#128247;</span><span><b>Turn In</b><small>Take a picture of the kids\' work and save it to Google Drive</small></span></button>') + "</section>";
     html += '<section class="t-card">' + (state.wp ? promptFlow() :
       '<button class="t-big t-big-b" data-action="wp-start"><span class="t-ico" aria-hidden="true">&#9998;&#65039;</span><span><b>What\'s the writing prompt?</b><small>Type the prompt for an upcoming writing day</small></span></button>') + "</section>";
+    html += '<section class="t-card">' + (state.vd ? videoFlow() :
+      '<button class="t-big" data-action="vd-start"><span class="t-ico" aria-hidden="true">&#127916;</span><span><b>Watch this video</b><small>Add a video of the day for the kids, on their own or together</small></span></button>') + "</section>";
     html += '<section class="t-card">' + (state.vr ? voiceFlow() :
       '<button class="t-big t-big-b" data-action="vr-start"><span class="t-ico" aria-hidden="true">&#127908;</span><span><b>Record memory work</b><small>Record your voice reading each Shakespeare and Books of the Bible line. The kids hear you instead of the computer voice.</small></span></button>') + "</section>";
     html += '<section class="t-card">' + (state.hw ? homeworkFlow() :
@@ -2847,6 +2867,80 @@ window.HUB = {
       return l.link ? '<a class="t-link" href="' + esc(l.link) + '" target="_blank" rel="noopener">' + inner + "</a>" : '<div class="t-link off" aria-disabled="true">' + inner + "</div>";
     }).join("") + "</div></section>";
     return html;
+  }
+  // ---------- Watch this video ----------
+  // Mom picks a video for a day on her page. Her Google script keeps it in the prompt slot for a made-up date in
+  // the year 2001 with the same month and day (2001-11-18 for Nov 18), as JSON: {"d":"2026-11-18","v":[{kids,url,mode,title}]}.
+  // No new script code is needed. kids is ["all"], ["kid1"] or ["kid2"]; mode is "own" or "together".
+  function vidKey(date) { return "2001" + String(date).slice(4, 10); }
+  function videosOn(date) {
+    try { var o = JSON.parse(momPrompts[vidKey(date)] || "null"); return o && o.d === date && Array.isArray(o.v) ? o.v : []; } catch (e) { return []; }
+  }
+  function videosFor(date) { return videosOn(date).filter(function (v) { return v && v.url && forKid(v); }); }
+  function videoDays() {
+    var wk = monday(today), out = [];
+    for (var i = 0; i < 14; i++) out.push(ymd(addDays(wk, i)));
+    return out;
+  }
+  function videoFlow() {
+    var vd = state.vd, days = videoDays();
+    if (!vd.date) vd.date = ymd(today);
+    if (!vd.who) vd.who = "all";
+    if (!vd.mode) vd.mode = "own";
+    var chip = function (k) {
+      var dd = parse(k), has = videosOn(k).length;
+      return '<button class="t-chip" data-action="vd-day" data-id="' + k + '" aria-pressed="' + (vd.date === k) + '">' + (k === ymd(today) ? "Today" : esc(DAY_NAMES[dd.getDay()].slice(0, 3)) + " " + (dd.getMonth() + 1) + "/" + dd.getDate()) + (has ? ' <span aria-label="has a video">&#10003;</span>' : "") + "</button>";
+    };
+    var cur = videosOn(vd.date);
+    return '<div class="t-head"><h3>Watch this video</h3><button class="t-text" data-action="vd-cancel">Done</button></div>' +
+      '<p class="t-hint">The video shows on the kids\' Today page only on the day you pick. A &#10003; means that day has one.</p>' +
+      '<p class="t-step">1. Day</p><p class="t-hint" style="margin:0 0 4px">This week</p><div class="t-choices">' + days.slice(0, 7).map(chip).join("") + "</div>" +
+      '<p class="t-hint" style="margin:8px 0 4px">Next week</p><div class="t-choices">' + days.slice(7).map(chip).join("") + "</div>" +
+      (cur.length ? '<ul class="t-hw-list" style="margin-top:10px">' + cur.map(function (v, i) {
+        return '<li><span><b>' + esc(v.title || v.url) + "</b><small>" + esc(hwKidsLabel(v.kids)) + " &middot; " + (v.mode === "together" ? "Together" : "On your own") + '</small></span><button class="t-text" data-action="vd-del" data-id="' + i + '"' + (vd.saving ? " disabled" : "") + ">Remove</button></li>";
+      }).join("") + "</ul>" : "") +
+      '<p class="t-step">2. Who</p><div class="t-choices">' + [{ id: "all", name: "Both" }].concat(kids).map(function (k) {
+        return '<button class="t-chip" data-action="vd-who" data-id="' + esc(k.id) + '" aria-pressed="' + (vd.who === k.id) + '">' + esc(k.name) + "</button>";
+      }).join("") + "</div>" +
+      '<p class="t-step">3. Video link</p><input class="t-area" id="vd-url" placeholder="Paste the YouTube link" value="' + esc(vd.url || "") + '">' +
+      '<p class="t-step">4. Title (optional)</p><input class="t-area" id="vd-title" maxlength="120" placeholder="e.g. How volcanoes work" value="' + esc(vd.title || "") + '">' +
+      '<p class="t-step">5. How will they watch it?</p><div class="t-choices">' +
+      '<button class="t-chip" data-action="vd-mode" data-id="own" aria-pressed="' + (vd.mode === "own") + '">On your own</button>' +
+      '<button class="t-chip" data-action="vd-mode" data-id="together" aria-pressed="' + (vd.mode === "together") + '">Together</button></div>' +
+      '<div class="t-row" style="margin-top:12px"><button class="t-btn" data-action="vd-save"' + (vd.saving ? " disabled" : "") + ">" + (vd.saving ? "Saving..." : "Add video") + "</button></div>" +
+      '<p class="t-msg' + (vd.bad ? " bad" : "") + '" aria-live="polite">' + esc(vd.msg || "") + "</p>";
+  }
+  function vdRead() {
+    var vd = state.vd; if (!vd) return;
+    var u = document.getElementById("vd-url"), t = document.getElementById("vd-title");
+    if (u) vd.url = u.value; if (t) vd.title = t.value;
+  }
+  function vdStore(date, list, okMsg) {
+    var vd = state.vd, text = list.length ? JSON.stringify({ d: date, v: list }) : "";
+    if (text.length > 1990) { vd.bad = true; vd.msg = "That's too many videos for one day. Remove one first."; render(); return; }
+    if (!H.writingSaveUrl) { vd.bad = true; vd.msg = "Google Drive isn't connected yet."; render(); return; }
+    vd.saving = true; vd.bad = false; vd.msg = ""; render();
+    fetch(H.writingSaveUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "prompt", date: vidKey(date), prompt: text }) })
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        var j = null; try { j = JSON.parse(t); } catch (e) {}
+        vd.saving = false;
+        if (!j || !j.ok) { vd.bad = true; vd.msg = "Couldn't save. Your Google script may need the latest code."; render(); return; }
+        if (j.prompts) momPrompts = j.prompts;
+        if (text) momPrompts[vidKey(date)] = text; else delete momPrompts[vidKey(date)];
+        try { localStorage.setItem(MKEY, JSON.stringify(momPrompts)); } catch (e) {}
+        vd.url = ""; vd.title = ""; vd.msg = okMsg; render();
+      })
+      .catch(function () { vd.saving = false; vd.bad = true; vd.msg = "Couldn't reach Google. Check the internet and try again."; render(); });
+  }
+  function vdSave() {
+    vdRead();
+    var vd = state.vd, url = String(vd.url || "").trim();
+    if (url && !/^https?:\/\//i.test(url)) url = "https://" + url;
+    if (!/^https?:\/\/\S+\.\S+/i.test(url)) { vd.bad = true; vd.msg = "Paste the video link first."; render(); return; }
+    var list = videosOn(vd.date).filter(function (v) { return (v.kids || ["all"]).join() !== [vd.who].join(); });
+    list.push({ kids: [vd.who], url: url, mode: vd.mode, title: String(vd.title || "").trim().slice(0, 120) });
+    vdStore(vd.date, list, "Added for " + (vd.who === "all" ? "both kids" : hwKidsLabel([vd.who])) + " on " + fmtLong(parse(vd.date)) + ".");
   }
   // Upcoming writing days (today on) for the next three weeks
   function writingDays() {
@@ -3412,6 +3506,21 @@ window.HUB = {
       }
       setTimeout(function () { if (boss && !still) boss.classList.add("hit"); playClang(); }, flight);
       setTimeout(function () { if (!isDone(el.dataset.key)) toggle(el.dataset.key); var y2 = window.scrollY; render(); window.scrollTo(0, y2); }, still ? 0 : 1000 + flight);
+    } else if (a === "vd-start") {
+      state.vd = {}; render();
+    } else if (a === "vd-cancel") {
+      state.vd = null; render();
+    } else if (a === "vd-day") {
+      vdRead(); state.vd.date = el.dataset.id; state.vd.msg = ""; render();
+    } else if (a === "vd-who") {
+      vdRead(); state.vd.who = el.dataset.id; render();
+    } else if (a === "vd-mode") {
+      vdRead(); state.vd.mode = el.dataset.id; render();
+    } else if (a === "vd-save") {
+      vdSave();
+    } else if (a === "vd-del") {
+      vdRead(); var vl = videosOn(state.vd.date), gone = vl.splice(+el.dataset.id, 1)[0];
+      vdStore(state.vd.date, vl, "Removed " + (gone && gone.title ? "\u201c" + gone.title + "\u201d" : "the video") + ".");
     } else if (a === "hk-start") {
       state.hk = {}; render();
     } else if (a === "hk-cancel") {
@@ -3583,7 +3692,7 @@ window.HUB = {
     try { localStorage.setItem("homeschool-hub-writing-extra", JSON.stringify(writingExtra)); } catch (e) {}
   }
   var EKEY = "homeschool-hub-test-early", spellSkips = {}, spellEarly = {}, sheetPrompts = {}, momPrompts = {}, PKEY = "homeschool-hub-prompts", MKEY = "homeschool-hub-mom-prompts";
-  function refreshPrompts() { applyPrompts(sheetPrompts); applyPrompts(momPrompts); if (!(state.tab === "write" || state.ti || state.wp || state.hw)) render(); }
+  function refreshPrompts() { applyPrompts(sheetPrompts); applyPrompts(momPrompts); if (!(state.tab === "write" || state.ti || state.wp || state.hw || state.vd)) render(); }
   try { sheetPrompts = JSON.parse(localStorage.getItem(PKEY)) || {}; } catch (e) {}
   try { momPrompts = JSON.parse(localStorage.getItem(MKEY)) || {}; } catch (e) {}
   try { spellEarly = JSON.parse(localStorage.getItem(EKEY)) || {}; } catch (e) {}
@@ -3602,12 +3711,12 @@ window.HUB = {
       if (j && (j.spellingSkip || j.testEarly)) {
         spellSkips = j.spellingSkip || {}; spellEarly = j.testEarly || {};
         try { localStorage.setItem(EKEY, JSON.stringify(spellEarly)); } catch (e) {}
-        if (!(state.tab === "write" || state.wp || state.ti || state.hw)) render();
+        if (!(state.tab === "write" || state.wp || state.ti || state.hw || state.vd)) render();
       }
-      if (j && j.dates) { applyDates(j.dates); if (!(state.tab === "write" || state.wp || state.ti || state.hw)) render(); }
+      if (j && j.dates) { applyDates(j.dates); if (!(state.tab === "write" || state.wp || state.ti || state.hw || state.vd)) render(); }
       if (j && j.done) applyChecks(j.done);
       if (j && j.voice) applyVoice(j.voice);
-      if (j && j.homework) { hwReady = true; applyHomework(j.homework); if (!(state.tab === "write" || state.wp || state.ti || state.hw)) render(); }
+      if (j && j.homework) { hwReady = true; applyHomework(j.homework); if (!(state.tab === "write" || state.wp || state.ti || state.hw || state.vd)) render(); }
       if (!j || !j.prompts) return;
       momPrompts = j.prompts;
       try { localStorage.setItem(MKEY, JSON.stringify(momPrompts)); } catch (e) {}
