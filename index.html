@@ -1119,6 +1119,7 @@ window.HUB = {
     },
     {
       id: "keyboard", name: "Keyboard", icon: "⌨️", color: "yellow",
+      kids: ["kid1"], // Roman does Handwriting instead for now (Nov 2026). Put "all" back here to bring Keyboard back for him.
       days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
       instructions: "Do 1 lesson and a game.",
       todo: [
@@ -1194,6 +1195,17 @@ window.HUB = {
           note: "Each line plays once. The new line (the last one) plays twice."
         }
       },
+      links: []
+    },
+    {
+      // Roman only, in place of Keyboard for now
+      id: "handwriting", name: "Handwriting", icon: "✍️", color: "orange",
+      kids: ["kid2"],
+      days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+      instructions: "Do your handwriting worksheet.",
+      todo: [
+        { text: "Worksheet" }
+      ],
       links: []
     },
     {
